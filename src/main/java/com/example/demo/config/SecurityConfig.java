@@ -69,19 +69,22 @@ public class SecurityConfig {
             .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> 
-                auth.requestMatchers("/api/auth/**").permitAll()
-                    .requestMatchers("/api/places/search/**").permitAll()
-                    .requestMatchers("/api/places/nearby/**").permitAll()
-                    .requestMatchers("/api/places/public/**").permitAll()
-                    .requestMatchers("/api/health/**").permitAll()
+                // ✅ REMOVIDO el prefijo /api porque ya está en context-path
+                auth.requestMatchers("/auth/**").permitAll()
+                    .requestMatchers("/places/search/**").permitAll()
+                    .requestMatchers("/places/nearby/**").permitAll()
+                    .requestMatchers("/places/public/**").permitAll()
+                    .requestMatchers("/places").permitAll() // GET todos los lugares
+                    .requestMatchers("/places/*").permitAll() // GET lugar por ID
+                    .requestMatchers("/health/**").permitAll()
                     .requestMatchers("/actuator/**").permitAll()
                     .requestMatchers("/swagger-ui/**").permitAll()
                     .requestMatchers("/v3/api-docs/**").permitAll()
-                    .requestMatchers("/api/places/create").hasRole("ADMIN")
-                    .requestMatchers("/api/places/update/**").hasRole("ADMIN")
-                    .requestMatchers("/api/places/delete/**").hasRole("ADMIN")
-                    .requestMatchers("/api/reports/admin/**").hasAnyRole("ADMIN", "STAFF")
-                    .requestMatchers("/api/users/admin/**").hasRole("ADMIN")
+                    .requestMatchers("/places/create").hasRole("ADMIN")
+                    .requestMatchers("/places/update/**").hasRole("ADMIN")
+                    .requestMatchers("/places/delete/**").hasRole("ADMIN")
+                    .requestMatchers("/reports/admin/**").hasAnyRole("ADMIN", "STAFF")
+                    .requestMatchers("/users/admin/**").hasRole("ADMIN")
                     .anyRequest().authenticated()
             );
 
