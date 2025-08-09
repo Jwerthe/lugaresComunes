@@ -1,0 +1,50 @@
+# Archivos de Maven
+target/
+.mvn/
+mvnw
+mvnw.cmd
+
+# Archivos del IDE
+.idea/
+*.iml
+.vscode/
+.eclipse/
+.metadata/
+.settings/
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Archivos temporales
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Documentación
+README.md
+docs/
+
+# Scripts
+*.sh
+*.bat
+
+# Archivos de configuración local
+application-local.yml
+application-dev.yml
+.env

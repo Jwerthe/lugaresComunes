@@ -1,0 +1,95 @@
+spring:
+  datasource:
+    url: jdbc:mysql://${DB_HOST:mysql-db}:${DB_PORT:3306}/${DB_NAME:lugares_comunes}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=America/Guayaquil
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:root_password}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    
+    # Configuración del pool de conexiones
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 300000
+      connection-timeout: 20000
+      leak-detection-threshold: 60000
+  
+  jpa:
+    hibernate:
+      ddl-auto: update
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+    show-sql: ${SHOW_SQL:false}
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+        use_sql_comments: true
+        jdbc:
+          batch_size: 20
+        order_inserts: true
+        order_updates: true
+    
+    # Configuración de inicialización
+    defer-datasource-initialization: true
+  
+  # Configuración de Jackson para JSON
+  jackson:
+    time-zone: America/Guayaquil
+    date-format: yyyy-MM-dd HH:mm:ss
+    serialization:
+      write-dates-as-timestamps: false
+    default-property-inclusion: non-null
+
+server:
+  port: ${SERVER_PORT:8080}
+  servlet:
+    context-path: /api
+  tomcat:
+    max-threads: 200
+    min-spare-threads: 10
+
+# Configuración JWT para Docker
+jwt:
+  secret: ${JWT_SECRET:lugares_comunes_jwt_secret_key_very_secure_2024_spring_boot_app}
+  expiration: ${JWT_EXPIRATION:86400000} # 24 hours
+
+# Configuración de logging para Docker
+logging:
+  level:
+    com.example.lugarescomunes: ${LOG_LEVEL:INFO}
+    org.springframework.security: WARN
+    org.hibernate.SQL: ${SHOW_SQL:false}
+    org.hibernate.type.descriptor.sql.BasicBinder: ${SHOW_SQL:false}
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# CORS para Docker
+cors:
+  allowed-origins: ${ALLOWED_ORIGINS:*}
+  allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+  allowed-headers: "*"
+  allow-credentials: true
+
+# Configuración de management endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when_authorized
+  health:
+    db:
+      enabled: true
+
+# Información de la aplicación
+info:
+  app:
+    name: Lugares Comunes API
+    description: API REST para la aplicación móvil Lugares Comunes - PUCE
+    version: 1.0.0
+    encoding: UTF-8
+    java:
+      version: 17
