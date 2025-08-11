@@ -48,20 +48,23 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
-        String path = request.getRequestURI();
+        String requestPath = request.getRequestURI();
         
         // Remover el context path si existe
         String contextPath = request.getContextPath();
-        if (StringUtils.hasText(contextPath) && path.startsWith(contextPath)) {
-            path = path.substring(contextPath.length());
+        if (StringUtils.hasText(contextPath) && requestPath.startsWith(contextPath)) {
+            requestPath = requestPath.substring(contextPath.length());
         }
+        
+        // 🔧 Variable final para usar en lambda
+        final String finalPath = requestPath;
         
         // Verificar si es una ruta pública
         boolean isPublicPath = PUBLIC_PATHS.stream()
-            .anyMatch(publicPath -> path.startsWith(publicPath) || path.equals(publicPath));
+            .anyMatch(publicPath -> finalPath.startsWith(publicPath) || finalPath.equals(publicPath));
         
         if (isPublicPath) {
-            logger.debug("⏭️ Skipping JWT filter for public path: {}", path);
+            logger.debug("⏭️ Skipping JWT filter for public path: {}", finalPath);
         }
         
         return isPublicPath;
