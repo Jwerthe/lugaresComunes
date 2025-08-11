@@ -3,6 +3,8 @@ package com.example.demo.config;
 import com.example.demo.security.JwtAuthenticationEntryPoint;
 import com.example.demo.security.JwtAuthenticationFilter;
 import com.example.demo.security.UserDetailsServiceImpl;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -29,6 +31,8 @@ import java.util.Collections;
 @EnableWebSecurity
 @EnableMethodSecurity(prePostEnabled = true)
 public class SecurityConfig {
+
+    private static final Logger logger = LoggerFactory.getLogger(SecurityConfig.class);
 
     @Autowired
     private UserDetailsServiceImpl userDetailsService;
@@ -64,33 +68,54 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        logger.info("🔧 Configurando Spring Security...");
+        
         http.cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(csrf -> csrf.disable())
             .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authorizeHttpRequests(auth -> 
-                // ✅ REMOVIDO el prefijo /api porque ya está en context-path
-                auth.requestMatchers("/auth/**").permitAll()
+            .authorizeHttpRequests(auth -> {
+                logger.info("🔓 Configurando rutas públicas...");
+                
+                auth
+                    // 🔓 RUTAS DE AUTENTICACIÓN - PÚBLICAS
+                    .requestMatchers("/auth/**").permitAll()
+                    
+                    // 🔓 RUTAS DE LUGARES - PÚBLICAS (solo lectura)
+                    .requestMatchers("/places").permitAll()
+                    .requestMatchers("/places/*").permitAll()
                     .requestMatchers("/places/search/**").permitAll()
                     .requestMatchers("/places/nearby/**").permitAll()
-                    .requestMatchers("/places/public/**").permitAll()
-                    .requestMatchers("/places").permitAll() // GET todos los lugares
-                    .requestMatchers("/places/*").permitAll() // GET lugar por ID
+                    .requestMatchers("/places/type/**").permitAll()
+                    .requestMatchers("/places/available/**").permitAll()
+                    .requestMatchers("/places/building/**").permitAll()
+                    .requestMatchers("/places/what3words/**").permitAll()
+                    
+                    // 🔓 HEALTH CHECKS - PÚBLICOS
                     .requestMatchers("/health/**").permitAll()
-                    .requestMatchers("/actuator/**").permitAll()
+                    .requestMatchers("/actuator/health/**").permitAll()
+                    
+                    // 🔓 DOCUMENTACIÓN - PÚBLICA
                     .requestMatchers("/swagger-ui/**").permitAll()
                     .requestMatchers("/v3/api-docs/**").permitAll()
-                    .requestMatchers("/places/create").hasRole("ADMIN")
+                    
+                    // 🔐 RUTAS PROTEGIDAS - ADMIN
+                    .requestMatchers("/places/create/**").hasRole("ADMIN")
                     .requestMatchers("/places/update/**").hasRole("ADMIN")
                     .requestMatchers("/places/delete/**").hasRole("ADMIN")
                     .requestMatchers("/reports/admin/**").hasAnyRole("ADMIN", "STAFF")
                     .requestMatchers("/users/admin/**").hasRole("ADMIN")
-                    .anyRequest().authenticated()
-            );
+                    
+                    // 🔐 TODO LO DEMÁS REQUIERE AUTENTICACIÓN
+                    .anyRequest().authenticated();
+                    
+                logger.info("✅ Configuración de rutas completada");
+            });
 
         http.authenticationProvider(authenticationProvider());
         http.addFilterBefore(authenticationJwtTokenFilter(), UsernamePasswordAuthenticationFilter.class);
 
+        logger.info("✅ Spring Security configurado correctamente");
         return http.build();
     }
 
@@ -98,7 +123,6 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         
-        // Permitir orígenes específicos o todos (*)
         if ("*".equals(allowedOrigins)) {
             configuration.setAllowedOriginPatterns(Collections.singletonList("*"));
         } else {

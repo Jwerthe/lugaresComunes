@@ -5,7 +5,6 @@ spring:
     password: ${DB_PASSWORD:root_password}
     driver-class-name: com.mysql.cj.jdbc.Driver
     
-    # Configuración del pool de conexiones
     hikari:
       maximum-pool-size: 20
       minimum-idle: 5
@@ -28,11 +27,8 @@ spring:
           batch_size: 20
         order_inserts: true
         order_updates: true
-    
-    # Configuración de inicialización
     defer-datasource-initialization: true
   
-  # Configuración de Jackson para JSON
   jackson:
     time-zone: America/Guayaquil
     date-format: yyyy-MM-dd HH:mm:ss
@@ -48,30 +44,31 @@ server:
     max-threads: 200
     min-spare-threads: 10
 
-# Configuración JWT para Docker
+# JWT Configuration
 jwt:
   secret: ${JWT_SECRET:lugares_comunes_jwt_secret_key_very_secure_2024_spring_boot_app}
-  expiration: ${JWT_EXPIRATION:86400000} # 24 hours
+  expiration: ${JWT_EXPIRATION:86400000}
 
-# Configuración de logging para Docker
+# 🔍 LOGGING DEBUG HABILITADO
 logging:
   level:
-    com.example.lugarescomunes: ${LOG_LEVEL:INFO}
-    org.springframework.security: WARN
-    org.hibernate.SQL: ${SHOW_SQL:false}
-    org.hibernate.type.descriptor.sql.BasicBinder: ${SHOW_SQL:false}
+    com.example.demo: DEBUG
+    com.example.demo.security: DEBUG
+    org.springframework.security: DEBUG
+    org.springframework.web.filter: DEBUG
+    org.springframework.security.web: DEBUG
+    org.springframework.security.config: DEBUG
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
-    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
 
-# CORS para Docker
+# CORS Configuration
 cors:
   allowed-origins: ${ALLOWED_ORIGINS:*}
   allowed-methods: GET,POST,PUT,DELETE,OPTIONS
   allowed-headers: "*"
   allow-credentials: true
 
-# Configuración de management endpoints
+# Management endpoints
 management:
   endpoints:
     web:
@@ -80,16 +77,3 @@ management:
   endpoint:
     health:
       show-details: when_authorized
-  health:
-    db:
-      enabled: true
-
-# Información de la aplicación
-info:
-  app:
-    name: Lugares Comunes API
-    description: API REST para la aplicación móvil Lugares Comunes - PUCE
-    version: 1.0.0
-    encoding: UTF-8
-    java:
-      version: 17

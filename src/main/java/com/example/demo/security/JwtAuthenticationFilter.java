@@ -16,6 +16,8 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
 
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
     
@@ -27,9 +29,50 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Autowired
     private UserDetailsService userDetailsService;
     
+    // 🔓 Rutas públicas que NO requieren JWT
+    private static final List<String> PUBLIC_PATHS = Arrays.asList(
+        "/auth/login",
+        "/auth/register", 
+        "/auth/health",
+        "/auth/validate-email",
+        "/auth/validate-student-id",
+        "/places",
+        "/places/search",
+        "/places/nearby",
+        "/places/type",
+        "/places/available",
+        "/places/building",
+        "/places/what3words",
+        "/health"
+    );
+    
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
+        String path = request.getRequestURI();
+        
+        // Remover el context path si existe
+        String contextPath = request.getContextPath();
+        if (StringUtils.hasText(contextPath) && path.startsWith(contextPath)) {
+            path = path.substring(contextPath.length());
+        }
+        
+        // Verificar si es una ruta pública
+        boolean isPublicPath = PUBLIC_PATHS.stream()
+            .anyMatch(publicPath -> path.startsWith(publicPath) || path.equals(publicPath));
+        
+        if (isPublicPath) {
+            logger.debug("⏭️ Skipping JWT filter for public path: {}", path);
+        }
+        
+        return isPublicPath;
+    }
+    
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
+        
+        logger.debug("🔐 Processing JWT for path: {}", request.getRequestURI());
+        
         try {
             String jwt = parseJwt(request);
             if (jwt != null && jwtUtils.validateJwtToken(jwt)) {
@@ -43,6 +86,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 
                 SecurityContextHolder.getContext().setAuthentication(authentication);
+                logger.debug("✅ User authenticated: {}", username);
+            } else {
+                logger.debug("❌ No valid JWT token found");
             }
         } catch (Exception e) {
             logger.error("Cannot set user authentication: {}", e.getMessage());
