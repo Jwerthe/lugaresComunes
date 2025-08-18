@@ -1,6 +1,5 @@
 package com.example.demo.entity;
 
-
 import jakarta.persistence.*;
 import org.hibernate.annotations.CreationTimestamp;
 
@@ -21,10 +20,10 @@ public class NavigationHistory {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
     
-    @Column(name = "from_lat", precision = 10, scale = 8)
+    @Column(name = "from_lat")
     private BigDecimal fromLat;
     
-    @Column(name = "from_lng", precision = 11, scale = 8)
+    @Column(name = "from_lng")
     private BigDecimal fromLng;
     
     @ManyToOne(fetch = FetchType.LAZY)
@@ -39,6 +38,14 @@ public class NavigationHistory {
     
     @Column(name = "duration_seconds")
     private Integer durationSeconds;
+    
+    // 🆕 NUEVOS CAMPOS PARA SISTEMA DE RUTAS
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "route_used_id")
+    private Route routeUsed; // Qué ruta siguió el usuario
+    
+    @Column(name = "route_completed")
+    private Boolean routeCompleted = false; // Si siguió la ruta hasta el final
     
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -55,7 +62,14 @@ public class NavigationHistory {
         this.navigationStartedAt = LocalDateTime.now();
     }
     
-    // Helper method to complete navigation
+    // 🆕 CONSTRUCTOR CON RUTA
+    public NavigationHistory(User user, Place toPlace, BigDecimal fromLat, 
+                           BigDecimal fromLng, Route routeUsed) {
+        this(user, toPlace, fromLat, fromLng);
+        this.routeUsed = routeUsed;
+    }
+    
+    // Helper method to complete navigation (existente, mejorado)
     public void completeNavigation() {
         this.navigationCompletedAt = LocalDateTime.now();
         if (this.navigationStartedAt != null) {
@@ -64,9 +78,64 @@ public class NavigationHistory {
                 this.navigationCompletedAt
             ).getSeconds();
         }
+        
+        // 🆕 Si usó una ruta, marcar como completada por defecto
+        if (this.routeUsed != null) {
+            this.routeCompleted = true;
+            // Incrementar el contador de uso de la ruta
+            this.routeUsed.incrementUsage();
+        }
     }
     
-    // Getters and Setters
+    // 🆕 NUEVOS MÉTODOS PARA RUTAS
+    public void completeNavigationWithRoute(boolean followedRoute) {
+        completeNavigation();
+        this.routeCompleted = followedRoute;
+    }
+    
+    public boolean hasUsedRoute() {
+        return routeUsed != null;
+    }
+    
+    public boolean isSuccessful() {
+        return navigationCompletedAt != null;
+    }
+    
+    public boolean canRateRoute() {
+        // Solo puede calificar si completó la navegación usando una ruta
+        return hasUsedRoute() && isSuccessful() && routeCompleted;
+    }
+    
+    public String getNavigationSummary() {
+        if (!isSuccessful()) {
+            return "Navegación incompleta";
+        }
+        
+        String summary = String.format("Navegación a %s", toPlace.getName());
+        if (hasUsedRoute()) {
+            summary += String.format(" usando ruta '%s'", routeUsed.getName());
+            if (routeCompleted) {
+                summary += " (ruta completada)";
+            } else {
+                summary += " (ruta abandonada)";
+            }
+        } else {
+            summary += " (navegación libre)";
+        }
+        
+        if (durationSeconds != null) {
+            int minutes = durationSeconds / 60;
+            summary += String.format(" - Duración: %d minutos", minutes);
+        }
+        
+        return summary;
+    }
+    
+    public long getNavigationDurationMinutes() {
+        return durationSeconds != null ? durationSeconds / 60 : 0;
+    }
+    
+    // Getters and Setters (todos los existentes + nuevos campos)
     public UUID getId() {
         return id;
     }
@@ -129,6 +198,23 @@ public class NavigationHistory {
     
     public void setDurationSeconds(Integer durationSeconds) {
         this.durationSeconds = durationSeconds;
+    }
+    
+    // 🆕 GETTERS/SETTERS PARA NUEVOS CAMPOS
+    public Route getRouteUsed() {
+        return routeUsed;
+    }
+    
+    public void setRouteUsed(Route routeUsed) {
+        this.routeUsed = routeUsed;
+    }
+    
+    public Boolean getRouteCompleted() {
+        return routeCompleted;
+    }
+    
+    public void setRouteCompleted(Boolean routeCompleted) {
+        this.routeCompleted = routeCompleted;
     }
     
     public LocalDateTime getCreatedAt() {

@@ -1,19 +1,19 @@
 package com.example.demo.config;
 
 import com.example.demo.entity.*;
-import com.example.demo.repository.PlaceRepository;
-import com.example.demo.repository.UserRepository;
+import com.example.demo.repository.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
-import org.springframework.core.env.Environment;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Arrays;
-import java.util.Set;
+import java.util.HashSet;
+import java.util.List;
 
 @Component
 public class DataLoader implements CommandLineRunner {
@@ -21,227 +21,426 @@ public class DataLoader implements CommandLineRunner {
     private static final Logger logger = LoggerFactory.getLogger(DataLoader.class);
 
     @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
     private PlaceRepository placeRepository;
 
     @Autowired
-    private UserRepository userRepository;
+    private RouteRepository routeRepository;
+
+    @Autowired
+    private RoutePointRepository routePointRepository;
+
+    @Autowired
+    private RouteProposalRepository proposalRepository;
+
+    @Autowired
+    private RouteRatingRepository ratingRepository;
+
+    @Autowired
+    private NavigationHistoryRepository navigationHistoryRepository;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
 
-    @Autowired
-    private Environment env;
-
     @Override
-    public void run(String... args) {
-        // Solo cargar datos en desarrollo y docker
-        String[] activeProfiles = env.getActiveProfiles();
-        boolean shouldLoadData = activeProfiles.length == 0 || // default profile
-                Arrays.asList(activeProfiles).contains("dev") ||
-                Arrays.asList(activeProfiles).contains("docker");
-
-        if (shouldLoadData && placeRepository.count() == 0) {
-            logger.info("🔄 Cargando datos de ejemplo...");
-            loadSampleUsers();
-            loadSamplePlaces();
-            logger.info("✅ Datos de ejemplo cargados exitosamente!");
-        } else if (placeRepository.count() > 0) {
-            logger.info("ℹ️ La base de datos ya contiene datos, omitiendo carga inicial");
+    public void run(String... args) throws Exception {
+        if (shouldLoadData()) {
+            logger.info("🚀 Iniciando carga de datos de ejemplo para sistema de rutas...");
+            
+            // Crear usuarios de ejemplo
+            createSampleUsers();
+            
+            // Crear lugares de ejemplo (si no existen)
+            createSamplePlaces();
+            
+            // Crear rutas de ejemplo
+            createSampleRoutes();
+            
+            // Crear propuestas de ejemplo
+            createSampleProposals();
+            
+            // Crear calificaciones de ejemplo
+            createSampleRatings();
+            
+            // Crear historial de navegación de ejemplo
+            createSampleNavigationHistory();
+            
+            logger.info("✅ Datos de ejemplo cargados exitosamente");
         }
     }
 
-    private void loadSampleUsers() {
-        // Usuario administrador
-        if (!userRepository.existsByEmail("admin@puce.edu.ec")) {
+    private boolean shouldLoadData() {
+        // Solo cargar datos si no hay rutas en la base de datos
+        return routeRepository.count() == 0;
+    }
+
+    private void createSampleUsers() {
+        logger.info("👥 Creando usuarios de ejemplo...");
+
+        // Admin principal
+        if (!userRepository.existsByEmail("admin@campus.edu")) {
             User admin = new User();
-            admin.setEmail("admin@puce.edu.ec");
+            admin.setEmail("admin@campus.edu");
             admin.setPassword(passwordEncoder.encode("admin123"));
-            admin.setFullName("Administrador del Sistema");
+            admin.setFullName("Administrador del Campus");
             admin.setUserType(UserType.ADMIN);
-            admin.setIsActive(true);
+            admin.setContributionScore(100);
             userRepository.save(admin);
-            logger.info("👤 Usuario administrador creado: admin@puce.edu.ec");
+            logger.info("✅ Admin creado: admin@campus.edu");
         }
 
-        // Usuario estudiante de ejemplo
-        if (!userRepository.existsByEmail("estudiante@puce.edu.ec")) {
+        // Usuario visitante activo
+        if (!userRepository.existsByEmail("visitor@campus.edu")) {
+            User visitor = new User();
+            visitor.setEmail("visitor@campus.edu");
+            visitor.setPassword(passwordEncoder.encode("visitor123"));
+            visitor.setFullName("Visitante Activo");
+            visitor.setUserType(UserType.VISITOR);
+            visitor.setContributionScore(45);
+            userRepository.save(visitor);
+            logger.info("✅ Visitante creado: visitor@campus.edu");
+        }
+
+        // Estudiante
+        if (!userRepository.existsByEmail("student@campus.edu")) {
             User student = new User();
-            student.setEmail("estudiante@puce.edu.ec");
-            student.setPassword(passwordEncoder.encode("estudiante123"));
-            student.setFullName("Juan Carlos Estudiante");
-            student.setStudentId("EST2024001");
+            student.setEmail("student@campus.edu");
+            student.setPassword(passwordEncoder.encode("student123"));
+            student.setFullName("Estudiante de Prueba");
+            student.setStudentId("20240001");
             student.setUserType(UserType.STUDENT);
-            student.setIsActive(true);
+            student.setContributionScore(25);
             userRepository.save(student);
-            logger.info("🎓 Usuario estudiante creado: estudiante@puce.edu.ec");
-        }
-
-        // Usuario docente de ejemplo
-        if (!userRepository.existsByEmail("docente@puce.edu.ec")) {
-            User teacher = new User();
-            teacher.setEmail("docente@puce.edu.ec");
-            teacher.setPassword(passwordEncoder.encode("docente123"));
-            teacher.setFullName("María Elena Docente");
-            teacher.setUserType(UserType.TEACHER);
-            teacher.setIsActive(true);
-            userRepository.save(teacher);
-            logger.info("👩‍🏫 Usuario docente creado: docente@puce.edu.ec");
+            logger.info("✅ Estudiante creado: student@campus.edu");
         }
     }
 
-    private void loadSamplePlaces() {
-        // Aula A-101
-        Place aula101 = new Place();
-        aula101.setName("Aula A-101");
-        aula101.setCategory("Aula");
-        aula101.setDescription("Aula de clases magistrales con capacidad para 40 estudiantes. Equipada con proyector y sistema de audio.");
-        aula101.setWhat3words("música.ejemplo.libertad");
-        aula101.setLatitude(new BigDecimal("-0.210959"));
-        aula101.setLongitude(new BigDecimal("-78.487259"));
-        aula101.setIsAvailable(true);
-        aula101.setPlaceType(PlaceType.CLASSROOM);
-        aula101.setCapacity(40);
-        aula101.setSchedule("Lunes a Viernes 7:00 - 22:00");
-        aula101.setBuildingName("Edificio Principal");
-        aula101.setFloorNumber(1);
-        aula101.setRoomCode("A-101");
-        aula101.setEquipment(Set.of("Proyector", "Sistema de audio", "Pizarra digital", "Aire acondicionado"));
-        aula101.setAccessibilityFeatures(Set.of("Acceso para sillas de ruedas", "Asientos preferenciales"));
-        placeRepository.save(aula101);
+    private void createSamplePlaces() {
+        logger.info("📍 Verificando lugares de ejemplo...");
 
-        // Laboratorio de Informática
-        Place lab1 = new Place();
-        lab1.setName("Laboratorio de Informática 1");
-        lab1.setCategory("Laboratorio");
-        lab1.setDescription("Laboratorio con 30 computadoras actualizadas, ideal para clases de programación y diseño.");
-        lab1.setWhat3words("código.digital.futuro");
-        lab1.setLatitude(new BigDecimal("-0.211100"));
-        lab1.setLongitude(new BigDecimal("-78.487000"));
-        lab1.setIsAvailable(false);
-        lab1.setPlaceType(PlaceType.LABORATORY);
-        lab1.setCapacity(30);
-        lab1.setSchedule("Lunes a Viernes 8:00 - 20:00");
-        lab1.setBuildingName("Edificio de Tecnología");
-        lab1.setFloorNumber(1);
-        lab1.setRoomCode("LAB-101");
-        lab1.setEquipment(Set.of("30 Computadoras", "Proyector", "Software especializado", "Red de alta velocidad"));
-        lab1.setAccessibilityFeatures(Set.of("Acceso para sillas de ruedas", "Mesas ajustables"));
-        placeRepository.save(lab1);
+        if (placeRepository.count() == 0) {
+            logger.info("🏗️ Creando lugares de ejemplo...");
 
-        // Biblioteca Central
-        Place biblioteca = new Place();
-        biblioteca.setName("Biblioteca Central");
-        biblioteca.setCategory("Biblioteca");
-        biblioteca.setDescription("Biblioteca principal del campus con más de 50,000 libros y salas de estudio.");
-        biblioteca.setWhat3words("silencio.libros.conocimiento");
-        biblioteca.setLatitude(new BigDecimal("-0.210800"));
-        biblioteca.setLongitude(new BigDecimal("-78.487500"));
-        biblioteca.setIsAvailable(true);
-        biblioteca.setPlaceType(PlaceType.LIBRARY);
-        biblioteca.setCapacity(150);
-        biblioteca.setSchedule("Lunes a Viernes 6:00 - 23:00, Sábados 8:00 - 18:00");
-        biblioteca.setBuildingName("Biblioteca Central");
-        biblioteca.setFloorNumber(1);
-        biblioteca.setRoomCode("BIB-001");
-        biblioteca.setEquipment(Set.of("Catálogo digital", "Salas de estudio", "WiFi gratuito", "Computadoras públicas"));
-        biblioteca.setAccessibilityFeatures(Set.of("Acceso para sillas de ruedas", "Elevador", "Baños adaptados"));
-        placeRepository.save(biblioteca);
+            // Biblioteca Central
+            Place library = createPlace(
+                "Biblioteca Central",
+                "Biblioteca",
+                "Biblioteca principal del campus universitario",
+                PlaceType.LIBRARY,
+                new BigDecimal("19.3326"), new BigDecimal("-99.1844"),
+                "what3words.library"
+            );
+            library.setSchedule("Lunes a Viernes: 7:00 AM - 10:00 PM, Sábados: 8:00 AM - 6:00 PM");
+            library.setCapacity(500);
+            library.setBuildingName("Edificio Central");
+            library.setFloorNumber(2);
+            placeRepository.save(library);
 
-        // Cafetería Central
-        Place cafeteria = new Place();
-        cafeteria.setName("Cafetería Central");
-        cafeteria.setCategory("Cafetería");
-        cafeteria.setDescription("Cafetería principal del campus con variedad de comidas y bebidas.");
-        cafeteria.setWhat3words("comida.campus.sabor");
-        cafeteria.setLatitude(new BigDecimal("-0.210700"));
-        cafeteria.setLongitude(new BigDecimal("-78.487300"));
-        cafeteria.setIsAvailable(true);
-        cafeteria.setPlaceType(PlaceType.CAFETERIA);
-        cafeteria.setCapacity(80);
-        cafeteria.setSchedule("Lunes a Viernes 7:00 - 18:00");
-        cafeteria.setBuildingName("Edificio Central");
-        cafeteria.setFloorNumber(1);
-        cafeteria.setRoomCode("CAF-001");
-        cafeteria.setEquipment(Set.of("Microondas", "Neveras", "Mesas y sillas", "TV"));
-        cafeteria.setAccessibilityFeatures(Set.of("Acceso para sillas de ruedas", "Mesas adaptadas"));
-        placeRepository.save(cafeteria);
+            // Cafetería Principal
+            Place cafeteria = createPlace(
+                "Cafetería Principal",
+                "Comidas",
+                "Cafetería principal con variedad de opciones de comida",
+                PlaceType.CAFETERIA,
+                new BigDecimal("19.3320"), new BigDecimal("-99.1840"),
+                "what3words.cafeteria"
+            );
+            cafeteria.setSchedule("Lunes a Viernes: 7:00 AM - 8:00 PM");
+            cafeteria.setCapacity(200);
+            cafeteria.setBuildingName("Edificio de Servicios");
+            cafeteria.setFloorNumber(1);
+            placeRepository.save(cafeteria);
 
-        // Auditorio Magna
-        Place auditorio = new Place();
-        auditorio.setName("Auditorio Magna");
-        auditorio.setCategory("Auditorio");
-        auditorio.setDescription("Auditorio principal para eventos y conferencias con capacidad para 200 personas.");
-        auditorio.setWhat3words("evento.grande.escenario");
-        auditorio.setLatitude(new BigDecimal("-0.210600"));
-        auditorio.setLongitude(new BigDecimal("-78.487400"));
-        auditorio.setIsAvailable(true);
-        auditorio.setPlaceType(PlaceType.AUDITORIUM);
-        auditorio.setCapacity(200);
-        auditorio.setSchedule("Previa reservación");
-        auditorio.setBuildingName("Edificio Cultural");
-        auditorio.setFloorNumber(1);
-        auditorio.setRoomCode("AUD-001");
-        auditorio.setEquipment(Set.of("Sistema de sonido profesional", "Proyectores duales", "Escenario", "Iluminación"));
-        auditorio.setAccessibilityFeatures(Set.of("Acceso para sillas de ruedas", "Asientos reservados", "Rampas"));
-        placeRepository.save(auditorio);
+            // Laboratorio de Cómputo
+            Place labComputo = createPlace(
+                "Laboratorio de Cómputo A",
+                "Laboratorio",
+                "Laboratorio equipado con computadoras de última generación",
+                PlaceType.LABORATORY,
+                new BigDecimal("19.3330"), new BigDecimal("-99.1850"),
+                "what3words.lab.computo"
+            );
+            labComputo.setCapacity(40);
+            labComputo.setEquipment(new HashSet<>(Arrays.asList("Computadoras", "Proyector", "Aire acondicionado")));
+            labComputo.setBuildingName("Edificio de Ingeniería");
+            labComputo.setFloorNumber(3);
+            placeRepository.save(labComputo);
 
-        // Oficina de Admisiones
-        Place admisiones = new Place();
-        admisiones.setName("Oficina de Admisiones");
-        admisiones.setCategory("Oficina");
-        admisiones.setDescription("Oficina principal de admisiones y trámites estudiantiles.");
-        admisiones.setWhat3words("trámite.estudiante.ayuda");
-        admisiones.setLatitude(new BigDecimal("-0.210500"));
-        admisiones.setLongitude(new BigDecimal("-78.487200"));
-        admisiones.setIsAvailable(true);
-        admisiones.setPlaceType(PlaceType.OFFICE);
-        admisiones.setCapacity(10);
-        admisiones.setSchedule("Lunes a Viernes 8:00 - 17:00");
-        admisiones.setBuildingName("Edificio Administrativo");
-        admisiones.setFloorNumber(2);
-        admisiones.setRoomCode("ADM-201");
-        admisiones.setEquipment(Set.of("Ventanillas de atención", "Sistema de turnos", "Computadoras"));
-        admisiones.setAccessibilityFeatures(Set.of("Acceso para sillas de ruedas", "Ventanilla baja"));
-        placeRepository.save(admisiones);
+            // Auditorio Principal
+            Place auditorio = createPlace(
+                "Auditorio Principal",
+                "Eventos",
+                "Auditorio principal para eventos y conferencias",
+                PlaceType.AUDITORIUM,
+                new BigDecimal("19.3315"), new BigDecimal("-99.1835"),
+                "what3words.auditorio"
+            );
+            auditorio.setCapacity(800);
+            auditorio.setEquipment(new HashSet<>(Arrays.asList("Sistema de sonido", "Proyector 4K", "Escenario")));
+            auditorio.setAccessibilityFeatures(new HashSet<>(Arrays.asList("Rampa de acceso", "Asientos preferenciales")));
+            placeRepository.save(auditorio);
 
-        // Laboratorio de Química
-        Place labQuimica = new Place();
-        labQuimica.setName("Laboratorio de Química");
-        labQuimica.setCategory("Laboratorio");
-        labQuimica.setDescription("Laboratorio especializado en química con equipos de seguridad completos.");
-        labQuimica.setWhat3words("química.experimento.ciencia");
-        labQuimica.setLatitude(new BigDecimal("-0.211200"));
-        labQuimica.setLongitude(new BigDecimal("-78.486900"));
-        labQuimica.setIsAvailable(true);
-        labQuimica.setPlaceType(PlaceType.LABORATORY);
-        labQuimica.setCapacity(25);
-        labQuimica.setSchedule("Lunes a Viernes 8:00 - 18:00");
-        labQuimica.setBuildingName("Edificio de Ciencias");
-        labQuimica.setFloorNumber(2);
-        labQuimica.setRoomCode("LAB-QUI-201");
-        labQuimica.setEquipment(Set.of("Mesas de trabajo", "Campanas extractoras", "Equipos de medición", "Kit de emergencia"));
-        labQuimica.setAccessibilityFeatures(Set.of("Rutas de evacuación", "Duchas de emergencia"));
-        placeRepository.save(labQuimica);
+            // Entrada Principal
+            Place entrance = createPlace(
+                "Entrada Principal",
+                "Acceso",
+                "Entrada principal del campus universitario",
+                PlaceType.ENTRANCE,
+                new BigDecimal("19.3310"), new BigDecimal("-99.1830"),
+                "what3words.entrance"
+            );
+            entrance.setBuildingName("Portería Principal");
+            placeRepository.save(entrance);
 
-        // Cancha de Deportes
-        Place cancha = new Place();
-        cancha.setName("Cancha Deportiva");
-        cancha.setCategory("Deportes");
-        cancha.setDescription("Cancha multiuso para fútbol, básquet y voleibol.");
-        cancha.setWhat3words("deporte.juego.ejercicio");
-        cancha.setLatitude(new BigDecimal("-0.210400"));
-        cancha.setLongitude(new BigDecimal("-78.487600"));
-        cancha.setIsAvailable(true);
-        cancha.setPlaceType(PlaceType.SERVICE);
-        cancha.setCapacity(50);
-        cancha.setSchedule("Lunes a Viernes 6:00 - 20:00");
-        cancha.setBuildingName("Complejo Deportivo");
-        cancha.setFloorNumber(1);
-        cancha.setRoomCode("DEP-001");
-        cancha.setEquipment(Set.of("Arcos de fútbol", "Canastas de básquet", "Red de voleibol", "Vestuarios"));
-        cancha.setAccessibilityFeatures(Set.of("Graderías adaptadas", "Acceso nivel"));
-        placeRepository.save(cancha);
+            logger.info("✅ {} lugares de ejemplo creados", placeRepository.count());
+        }
+    }
 
-        logger.info("📍 {} lugares de ejemplo creados", placeRepository.count());
+    private Place createPlace(String name, String category, String description, PlaceType type, 
+                             BigDecimal lat, BigDecimal lng, String what3words) {
+        Place place = new Place();
+        place.setName(name);
+        place.setCategory(category);
+        place.setDescription(description);
+        place.setPlaceType(type);
+        place.setLatitude(lat);
+        place.setLongitude(lng);
+        place.setWhat3words(what3words);
+        place.setIsAvailable(true);
+        place.setIsRouteDestination(true);
+        return place;
+    }
+
+    private void createSampleRoutes() {
+        logger.info("🗺️ Creando rutas de ejemplo...");
+
+        User admin = userRepository.findByEmail("admin@campus.edu").orElse(null);
+        if (admin == null) return;
+
+        List<Place> places = placeRepository.findAll();
+        if (places.size() < 2) return;
+
+        Place entrance = places.stream()
+                .filter(p -> p.getName().contains("Entrada"))
+                .findFirst().orElse(places.get(0));
+        
+        Place library = places.stream()
+                .filter(p -> p.getName().contains("Biblioteca"))
+                .findFirst().orElse(places.get(1));
+
+        Place cafeteria = places.stream()
+                .filter(p -> p.getName().contains("Cafetería"))
+                .findFirst().orElse(places.get(2));
+
+        // Ruta 1: Entrada Principal → Biblioteca
+        Route routeToLibrary = new Route();
+        routeToLibrary.setName("Entrada Principal → Biblioteca Central");
+        routeToLibrary.setDescription("Ruta directa desde la entrada principal hasta la biblioteca central");
+        routeToLibrary.setFromLatitude(entrance.getLatitude());
+        routeToLibrary.setFromLongitude(entrance.getLongitude());
+        routeToLibrary.setFromDescription("Entrada Principal del Campus");
+        routeToLibrary.setToPlace(library);
+        routeToLibrary.setTotalDistance(350);
+        routeToLibrary.setEstimatedTime(5);
+        routeToLibrary.setDifficulty(RouteDifficulty.EASY);
+        routeToLibrary.setCreatedBy(admin);
+        routeToLibrary.setAverageRating(4.2);
+        routeToLibrary.setTotalRatings(8);
+        routeToLibrary.setTimesUsed(15);
+        routeRepository.save(routeToLibrary);
+
+        // Crear puntos para ruta a biblioteca
+        createRoutePoint(routeToLibrary, 0, RoutePointType.START, entrance.getLatitude(), entrance.getLongitude(), 
+                        "Inicia en la entrada principal del campus", 0);
+        createRoutePoint(routeToLibrary, 1, RoutePointType.WAYPOINT, 
+                        new BigDecimal("19.3318"), new BigDecimal("-99.1838"), 
+                        "Camina derecho por el sendero principal", 120);
+        createRoutePoint(routeToLibrary, 2, RoutePointType.TURN, 
+                        new BigDecimal("19.3322"), new BigDecimal("-99.1842"), 
+                        "Gira a la izquierda hacia el edificio central", 80);
+        createRoutePoint(routeToLibrary, 3, RoutePointType.LANDMARK, 
+                        new BigDecimal("19.3324"), new BigDecimal("-99.1843"), 
+                        "Pasa por la fuente central", 50);
+        createRoutePoint(routeToLibrary, 4, RoutePointType.END, library.getLatitude(), library.getLongitude(), 
+                        "Has llegado a la Biblioteca Central", 100);
+
+        // Ruta 2: Entrada Principal → Cafetería
+        Route routeToCafeteria = new Route();
+        routeToCafeteria.setName("Entrada Principal → Cafetería Principal");
+        routeToCafeteria.setDescription("Ruta rápida a la cafetería para una comida rápida");
+        routeToCafeteria.setFromLatitude(entrance.getLatitude());
+        routeToCafeteria.setFromLongitude(entrance.getLongitude());
+        routeToCafeteria.setFromDescription("Entrada Principal del Campus");
+        routeToCafeteria.setToPlace(cafeteria);
+        routeToCafeteria.setTotalDistance(280);
+        routeToCafeteria.setEstimatedTime(4);
+        routeToCafeteria.setDifficulty(RouteDifficulty.EASY);
+        routeToCafeteria.setCreatedBy(admin);
+        routeToCafeteria.setAverageRating(4.5);
+        routeToCafeteria.setTotalRatings(12);
+        routeToCafeteria.setTimesUsed(25);
+        routeRepository.save(routeToCafeteria);
+
+        // Crear puntos para ruta a cafetería
+        createRoutePoint(routeToCafeteria, 0, RoutePointType.START, entrance.getLatitude(), entrance.getLongitude(), 
+                        "Inicia en la entrada principal", 0);
+        createRoutePoint(routeToCafeteria, 1, RoutePointType.TURN, 
+                        new BigDecimal("19.3315"), new BigDecimal("-99.1835"), 
+                        "Gira a la derecha hacia el edificio de servicios", 100);
+        createRoutePoint(routeToCafeteria, 2, RoutePointType.LANDMARK, 
+                        new BigDecimal("19.3318"), new BigDecimal("-99.1838"), 
+                        "Pasa por el jardín de estudiantes", 120);
+        createRoutePoint(routeToCafeteria, 3, RoutePointType.END, cafeteria.getLatitude(), cafeteria.getLongitude(), 
+                        "Has llegado a la Cafetería Principal", 60);
+
+        // Actualizar contadores de rutas en los lugares
+        library.incrementRouteCount();
+        cafeteria.incrementRouteCount();
+        placeRepository.saveAll(Arrays.asList(library, cafeteria));
+
+        logger.info("✅ {} rutas de ejemplo creadas", routeRepository.count());
+    }
+
+    private void createRoutePoint(Route route, int order, RoutePointType type, BigDecimal lat, BigDecimal lng, 
+                                 String instruction, int distance) {
+        RoutePoint point = new RoutePoint();
+        point.setRoute(route);
+        point.setOrderIndex(order);
+        point.setPointType(type);
+        point.setLatitude(lat);
+        point.setLongitude(lng);
+        point.setInstruction(instruction);
+        point.setDistanceFromPrevious(distance);
+        routePointRepository.save(point);
+    }
+
+    private void createSampleProposals() {
+        logger.info("💡 Creando propuestas de ejemplo...");
+
+        User visitor = userRepository.findByEmail("visitor@campus.edu").orElse(null);
+        User student = userRepository.findByEmail("student@campus.edu").orElse(null);
+        
+        if (visitor == null || student == null) return;
+
+        List<Place> places = placeRepository.findAll();
+        if (places.isEmpty()) return;
+
+        Place destination = places.stream()
+                .filter(p -> p.getName().contains("Laboratorio"))
+                .findFirst().orElse(places.get(0));
+
+        // Propuesta pendiente del visitante
+        RouteProposal proposal1 = new RouteProposal();
+        proposal1.setProposedBy(visitor);
+        proposal1.setTitle("Ruta alternativa al Laboratorio de Cómputo");
+        proposal1.setDescription("Propongo una ruta más rápida que evita las escaleras principales y usa el elevador");
+        proposal1.setFromLatitude(new BigDecimal("19.3312"));
+        proposal1.setFromLongitude(new BigDecimal("19.3312"));
+        proposal1.setFromDescription("Entrada lateral del edificio");
+        proposal1.setToPlace(destination);
+        proposal1.setProposedPoints("{\"points\": [{\"lat\": 19.3312, \"lng\": -99.1832, \"description\": \"Punto de inicio\"}, {\"lat\": 19.3328, \"lng\": -99.1848, \"description\": \"Usar elevador\"}]}");
+        proposal1.setStatus(ProposalStatus.PENDING);
+        proposalRepository.save(proposal1);
+
+        // Propuesta aprobada del estudiante
+        RouteProposal proposal2 = new RouteProposal();
+        proposal2.setProposedBy(student);
+        proposal2.setTitle("Ruta accesible a la Cafetería");
+        proposal2.setDescription("Ruta sin escalones para personas con movilidad reducida");
+        proposal2.setFromLatitude(new BigDecimal("19.3325"));
+        proposal2.setFromLongitude(new BigDecimal("19.3325"));
+        proposal2.setFromDescription("Estacionamiento sur");
+        proposal2.setToPlace(placeRepository.findAll().stream()
+                .filter(p -> p.getName().contains("Cafetería"))
+                .findFirst().orElse(destination));
+        proposal2.setStatus(ProposalStatus.APPROVED);
+        proposal2.setReviewedBy(userRepository.findByEmail("admin@campus.edu").orElse(null));
+        proposal2.setReviewedAt(LocalDateTime.now().minusDays(2));
+        proposal2.setAdminNotes("Excelente propuesta. Ruta aprobada e implementada.");
+        proposalRepository.save(proposal2);
+
+        logger.info("✅ {} propuestas de ejemplo creadas", proposalRepository.count());
+    }
+
+    private void createSampleRatings() {
+        logger.info("⭐ Creando calificaciones de ejemplo...");
+
+        User visitor = userRepository.findByEmail("visitor@campus.edu").orElse(null);
+        User student = userRepository.findByEmail("student@campus.edu").orElse(null);
+        
+        List<Route> routes = routeRepository.findAll();
+        
+        if (visitor == null || student == null || routes.isEmpty()) return;
+
+        Route route1 = routes.get(0);
+
+        // Calificación del visitante
+        RouteRating rating1 = new RouteRating();
+        rating1.setRoute(route1);
+        rating1.setUser(visitor);
+        rating1.setRating(4);
+        rating1.setComment("Ruta clara y bien señalizada. Me ayudó mucho en mi primera visita.");
+        ratingRepository.save(rating1);
+
+        // Calificación del estudiante
+        RouteRating rating2 = new RouteRating();
+        rating2.setRoute(route1);
+        rating2.setUser(student);
+        rating2.setRating(5);
+        rating2.setComment("Perfecta para llegar rápido a la biblioteca. La uso todos los días.");
+        ratingRepository.save(rating2);
+
+        if (routes.size() > 1) {
+            Route route2 = routes.get(1);
+            
+            RouteRating rating3 = new RouteRating();
+            rating3.setRoute(route2);
+            rating3.setUser(visitor);
+            rating3.setRating(4);
+            rating3.setComment("Muy conveniente para el almuerzo.");
+            ratingRepository.save(rating3);
+        }
+
+        logger.info("✅ {} calificaciones de ejemplo creadas", ratingRepository.count());
+    }
+
+    private void createSampleNavigationHistory() {
+        logger.info("🧭 Creando historial de navegación de ejemplo...");
+
+        User visitor = userRepository.findByEmail("visitor@campus.edu").orElse(null);
+        User student = userRepository.findByEmail("student@campus.edu").orElse(null);
+        
+        List<Route> routes = routeRepository.findAll();
+        List<Place> places = placeRepository.findAll();
+        
+        if (visitor == null || student == null || routes.isEmpty() || places.isEmpty()) return;
+
+        // Navegación completada del visitante usando ruta
+        NavigationHistory nav1 = new NavigationHistory();
+        nav1.setUser(visitor);
+        nav1.setFromLat(new BigDecimal("19.3310"));
+        nav1.setFromLng(new BigDecimal("-99.1830"));
+        nav1.setToPlace(places.get(0));
+        nav1.setRouteUsed(routes.get(0));
+        nav1.setNavigationStartedAt(LocalDateTime.now().minusHours(2));
+        nav1.setNavigationCompletedAt(LocalDateTime.now().minusHours(2).plusMinutes(6));
+        nav1.setDurationSeconds(360); // 6 minutos
+        nav1.setRouteCompleted(true);
+        navigationHistoryRepository.save(nav1);
+
+        // Navegación del estudiante sin ruta específica
+        NavigationHistory nav2 = new NavigationHistory();
+        nav2.setUser(student);
+        nav2.setFromLat(new BigDecimal("19.3315"));
+        nav2.setFromLng(new BigDecimal("-99.1835"));
+        nav2.setToPlace(places.size() > 1 ? places.get(1) : places.get(0));
+        nav2.setNavigationStartedAt(LocalDateTime.now().minusDays(1));
+        nav2.setNavigationCompletedAt(LocalDateTime.now().minusDays(1).plusMinutes(8));
+        nav2.setDurationSeconds(480); // 8 minutos
+        navigationHistoryRepository.save(nav2);
+
+        logger.info("✅ {} registros de navegación de ejemplo creados", navigationHistoryRepository.count());
     }
 }

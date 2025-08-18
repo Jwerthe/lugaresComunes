@@ -1,210 +1,148 @@
+// GlobalExceptionHandler.java - Actualizado con nuevas excepciones
 package com.example.demo.exception;
-
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
-@RestControllerAdvice
+@ControllerAdvice
 public class GlobalExceptionHandler {
 
     private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
+    // Manejo de excepciones específicas de rutas
+    @ExceptionHandler(RouteValidationException.class)
+    public ResponseEntity<?> handleRouteValidationException(RouteValidationException ex, WebRequest request) {
+        logger.error("Route validation error: {}", ex.getMessage());
+        
+        Map<String, Object> errorResponse = createErrorResponse(
+            "ROUTE_VALIDATION_ERROR", 
+            ex.getMessage(), 
+            HttpStatus.BAD_REQUEST
+        );
+        
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(NavigationException.class)
+    public ResponseEntity<?> handleNavigationException(NavigationException ex, WebRequest request) {
+        logger.error("Navigation error: {}", ex.getMessage());
+        
+        Map<String, Object> errorResponse = createErrorResponse(
+            "NAVIGATION_ERROR", 
+            ex.getMessage(), 
+            HttpStatus.BAD_REQUEST
+        );
+        
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(ProposalException.class)
+    public ResponseEntity<?> handleProposalException(ProposalException ex, WebRequest request) {
+        logger.error("Proposal error: {}", ex.getMessage());
+        
+        Map<String, Object> errorResponse = createErrorResponse(
+            "PROPOSAL_ERROR", 
+            ex.getMessage(), 
+            HttpStatus.BAD_REQUEST
+        );
+        
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+    }
+
+    // Excepciones existentes (Resource not found, bad request, etc.)
     @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleResourceNotFoundException(
-            ResourceNotFoundException ex, WebRequest request) {
+    public ResponseEntity<?> handleResourceNotFoundException(ResourceNotFoundException ex, WebRequest request) {
+        logger.error("Resource not found: {}", ex.getMessage());
         
-        logger.warn("Resource not found: {}", ex.getMessage());
-        
-        ErrorResponse errorResponse = new ErrorResponse(
-                HttpStatus.NOT_FOUND.value(),
-                "Resource Not Found",
-                ex.getMessage(),
-                request.getDescription(false),
-                LocalDateTime.now()
+        Map<String, Object> errorResponse = createErrorResponse(
+            "RESOURCE_NOT_FOUND", 
+            ex.getMessage(), 
+            HttpStatus.NOT_FOUND
         );
         
         return new ResponseEntity<>(errorResponse, HttpStatus.NOT_FOUND);
     }
 
     @ExceptionHandler(BadRequestException.class)
-    public ResponseEntity<ErrorResponse> handleBadRequestException(
-            BadRequestException ex, WebRequest request) {
+    public ResponseEntity<?> handleBadRequestException(BadRequestException ex, WebRequest request) {
+        logger.error("Bad request: {}", ex.getMessage());
         
-        logger.warn("Bad request: {}", ex.getMessage());
-        
-        ErrorResponse errorResponse = new ErrorResponse(
-                HttpStatus.BAD_REQUEST.value(),
-                "Bad Request",
-                ex.getMessage(),
-                request.getDescription(false),
-                LocalDateTime.now()
+        Map<String, Object> errorResponse = createErrorResponse(
+            "BAD_REQUEST", 
+            ex.getMessage(), 
+            HttpStatus.BAD_REQUEST
         );
         
         return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
     }
 
-    @ExceptionHandler(UnauthorizedException.class)
-    public ResponseEntity<ErrorResponse> handleUnauthorizedException(
-            UnauthorizedException ex, WebRequest request) {
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<?> handleAccessDeniedException(AccessDeniedException ex, WebRequest request) {
+        logger.error("Access denied: {}", ex.getMessage());
         
-        logger.warn("Unauthorized: {}", ex.getMessage());
-        
-        ErrorResponse errorResponse = new ErrorResponse(
-                HttpStatus.UNAUTHORIZED.value(),
-                "Unauthorized",
-                ex.getMessage(),
-                request.getDescription(false),
-                LocalDateTime.now()
-        );
-        
-        return new ResponseEntity<>(errorResponse, HttpStatus.UNAUTHORIZED);
-    }
-
-    @ExceptionHandler(ForbiddenException.class)
-    public ResponseEntity<ErrorResponse> handleForbiddenException(
-            ForbiddenException ex, WebRequest request) {
-        
-        logger.warn("Forbidden: {}", ex.getMessage());
-        
-        ErrorResponse errorResponse = new ErrorResponse(
-                HttpStatus.FORBIDDEN.value(),
-                "Forbidden",
-                ex.getMessage(),
-                request.getDescription(false),
-                LocalDateTime.now()
+        Map<String, Object> errorResponse = createErrorResponse(
+            "ACCESS_DENIED", 
+            "No tienes permisos para realizar esta acción", 
+            HttpStatus.FORBIDDEN
         );
         
         return new ResponseEntity<>(errorResponse, HttpStatus.FORBIDDEN);
     }
 
-    @ExceptionHandler(ConflictException.class)
-    public ResponseEntity<ErrorResponse> handleConflictException(
-            ConflictException ex, WebRequest request) {
-        
-        logger.warn("Conflict: {}", ex.getMessage());
-        
-        ErrorResponse errorResponse = new ErrorResponse(
-                HttpStatus.CONFLICT.value(),
-                "Conflict",
-                ex.getMessage(),
-                request.getDescription(false),
-                LocalDateTime.now()
-        );
-        
-        return new ResponseEntity<>(errorResponse, HttpStatus.CONFLICT);
-    }
-
-    @ExceptionHandler(BadCredentialsException.class)
-    public ResponseEntity<ErrorResponse> handleBadCredentialsException(
-            BadCredentialsException ex, WebRequest request) {
-        
-        logger.warn("Bad credentials: {}", ex.getMessage());
-        
-        ErrorResponse errorResponse = new ErrorResponse(
-                HttpStatus.UNAUTHORIZED.value(),
-                "Invalid Credentials",
-                "Email o contraseña incorrectos",
-                request.getDescription(false),
-                LocalDateTime.now()
-        );
-        
-        return new ResponseEntity<>(errorResponse, HttpStatus.UNAUTHORIZED);
-    }
-
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ValidationErrorResponse> handleValidationExceptions(
-            MethodArgumentNotValidException ex, WebRequest request) {
+    public ResponseEntity<?> handleValidationExceptions(MethodArgumentNotValidException ex) {
+        logger.error("Validation error: {}", ex.getMessage());
         
-        logger.warn("Validation error: {}", ex.getMessage());
-        
-        Map<String, String> errors = new HashMap<>();
+        Map<String, String> fieldErrors = new HashMap<>();
         ex.getBindingResult().getAllErrors().forEach((error) -> {
             String fieldName = ((FieldError) error).getField();
             String errorMessage = error.getDefaultMessage();
-            errors.put(fieldName, errorMessage);
+            fieldErrors.put(fieldName, errorMessage);
         });
 
-        ValidationErrorResponse errorResponse = new ValidationErrorResponse(
-                HttpStatus.BAD_REQUEST.value(),
-                "Validation Failed",
-                "Los datos enviados no son válidos",
-                request.getDescription(false),
-                LocalDateTime.now(),
-                errors
+        Map<String, Object> errorResponse = createErrorResponse(
+            "VALIDATION_ERROR", 
+            "Error de validación en los datos enviados", 
+            HttpStatus.BAD_REQUEST
         );
-
+        errorResponse.put("fieldErrors", fieldErrors);
+        
         return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleGlobalException(
-            Exception ex, WebRequest request) {
+    public ResponseEntity<?> handleGlobalException(Exception ex, WebRequest request) {
+        logger.error("Unexpected error: ", ex);
         
-        logger.error("Internal server error: ", ex);
-        
-        ErrorResponse errorResponse = new ErrorResponse(
-                HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                "Internal Server Error",
-                "Ha ocurrido un error interno en el servidor",
-                request.getDescription(false),
-                LocalDateTime.now()
+        Map<String, Object> errorResponse = createErrorResponse(
+            "INTERNAL_SERVER_ERROR", 
+            "Ha ocurrido un error interno. Por favor intenta de nuevo más tarde.", 
+            HttpStatus.INTERNAL_SERVER_ERROR
         );
         
         return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
-    // ErrorResponse class
-    public static class ErrorResponse {
-        private int status;
-        private String error;
-        private String message;
-        private String path;
-        private LocalDateTime timestamp;
-
-        public ErrorResponse(int status, String error, String message, String path, LocalDateTime timestamp) {
-            this.status = status;
-            this.error = error;
-            this.message = message;
-            this.path = path;
-            this.timestamp = timestamp;
-        }
-
-        // Getters and setters
-        public int getStatus() { return status; }
-        public void setStatus(int status) { this.status = status; }
-        public String getError() { return error; }
-        public void setError(String error) { this.error = error; }
-        public String getMessage() { return message; }
-        public void setMessage(String message) { this.message = message; }
-        public String getPath() { return path; }
-        public void setPath(String path) { this.path = path; }
-        public LocalDateTime getTimestamp() { return timestamp; }
-        public void setTimestamp(LocalDateTime timestamp) { this.timestamp = timestamp; }
-    }
-
-    // ValidationErrorResponse class
-    public static class ValidationErrorResponse extends ErrorResponse {
-        private Map<String, String> fieldErrors;
-
-        public ValidationErrorResponse(int status, String error, String message, String path, 
-                                     LocalDateTime timestamp, Map<String, String> fieldErrors) {
-            super(status, error, message, path, timestamp);
-            this.fieldErrors = fieldErrors;
-        }
-
-        public Map<String, String> getFieldErrors() { return fieldErrors; }
-        public void setFieldErrors(Map<String, String> fieldErrors) { this.fieldErrors = fieldErrors; }
+    private Map<String, Object> createErrorResponse(String errorCode, String message, HttpStatus status) {
+        Map<String, Object> errorResponse = new HashMap<>();
+        errorResponse.put("success", false);
+        errorResponse.put("errorCode", errorCode);
+        errorResponse.put("message", message);
+        errorResponse.put("status", status.value());
+        errorResponse.put("timestamp", LocalDateTime.now());
+        
+        return errorResponse;
     }
 }
