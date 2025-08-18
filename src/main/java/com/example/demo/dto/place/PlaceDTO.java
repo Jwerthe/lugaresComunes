@@ -29,6 +29,8 @@ public class PlaceDTO {
  private String roomCode;
  private Set<String> equipment;
  private Set<String> accessibilityFeatures;
+ private Boolean isRouteDestination;
+ private Integer routeCount;
  
  @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
  private LocalDateTime createdAt;
@@ -59,6 +61,8 @@ public class PlaceDTO {
      this.accessibilityFeatures = place.getAccessibilityFeatures();
      this.createdAt = place.getCreatedAt();
      this.updatedAt = place.getUpdatedAt();
+     this.isRouteDestination = place.getIsRouteDestination();
+     this.routeCount = place.getRouteCount();
  }
  
  // Static factory method
@@ -218,4 +222,8 @@ public class PlaceDTO {
  public void setUpdatedAt(LocalDateTime updatedAt) {
      this.updatedAt = updatedAt;
  }
+ public Boolean getIsRouteDestination() { return isRouteDestination; }
+ public void setIsRouteDestination(Boolean isRouteDestination) { this.isRouteDestination = isRouteDestination; }
+ public Integer getRouteCount() { return routeCount; }
+ public void setRouteCount(Integer routeCount) { this.routeCount = routeCount; }
 }

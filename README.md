@@ -1,12 +1,15 @@
 # Lugares Comunes - Backend API
 
-API REST desarrollada en Spring Boot para la aplicación móvil "Lugares Comunes" de la PUCE.
+API REST desarrollada en Spring Boot para la aplicación móvil "Lugares Comunes" de la PUCE con **Sistema de Navegación con Rutas**.
 
 ## 🚀 Características
 
 - **Spring Boot 3.5.4** con Java 17
 - **Autenticación JWT** con Spring Security
 - **Base de datos MySQL** con JPA/Hibernate
+- **Sistema de Rutas de Navegación** con GPS
+- **Sistema de Propuestas** de rutas por usuarios
+- **Sistema de Calificaciones** y contribuciones
 - **Dockerizado** con Docker Compose
 - **APIs RESTful** siguiendo mejores prácticas
 - **Validación de datos** con Bean Validation
@@ -36,17 +39,12 @@ cd lugaresComunes-backend
 mkdir -p docker/mysql
 ```
 
-3. **Copia el archivo init.sql al directorio correcto:**
-```bash
-# Asegúrate de que el archivo docker/mysql/init.sql esté en su lugar
-```
-
-4. **Ejecuta con Docker Compose:**
+3. **Ejecuta con Docker Compose:**
 ```bash
 docker-compose up -d
 ```
 
-5. **Verifica que los servicios estén ejecutándose:**
+4. **Verifica que los servicios estén ejecutándose:**
 ```bash
 docker-compose ps
 ```
@@ -101,7 +99,7 @@ mvn spring-boot:run
 | POST | `/api/auth/register` | Registrar usuario | No |
 | GET | `/api/auth/me` | Usuario actual | Sí |
 | GET | `/api/auth/validate-email` | Validar email | No |
-| POST | `/api/auth/logout` | Cerrar sesión | No |
+| GET | `/api/auth/health` | Health check auth | No |
 
 ### 📍 Lugares
 
@@ -119,6 +117,68 @@ mvn spring-boot:run
 | PUT | `/api/places/{id}` | Actualizar lugar | Admin |
 | DELETE | `/api/places/{id}` | Eliminar lugar | Admin |
 
+### 🗺️ Rutas de Navegación
+
+#### 🌐 Endpoints Públicos (sin autenticación)
+
+| Método | Endpoint | Descripción |
+|--------|----------|-------------|
+| GET | `/api/routes/destinations` | Lista destinos disponibles con cantidad de rutas |
+| GET | `/api/routes/to/{placeId}` | Rutas disponibles a un destino específico |
+| GET | `/api/routes/{routeId}/points` | Puntos detallados de una ruta |
+| GET | `/api/routes/nearest?lat=X&lng=Y&destination=placeId` | Ruta más cercana al usuario |
+| GET | `/api/routes/{routeId}/details` | Información completa de una ruta |
+| GET | `/api/routes/health` | Health check rutas |
+
+#### 🔐 Endpoints Protegidos (requieren JWT)
+
+| Método | Endpoint | Descripción |
+|--------|----------|-------------|
+| POST | `/api/routes/{routeId}/rating` | Calificar una ruta (1-5 estrellas) |
+| GET | `/api/routes/{routeId}/my-rating` | Ver mi calificación de una ruta |
+
+#### 🛡️ Endpoints Solo Admin
+
+| Método | Endpoint | Descripción |
+|--------|----------|-------------|
+| POST | `/api/routes` | Crear ruta oficial directamente |
+| PUT | `/api/routes/{routeId}` | Actualizar ruta existente |
+| DELETE | `/api/routes/{routeId}` | Eliminar ruta |
+| GET | `/api/routes/analytics` | Estadísticas de uso de rutas |
+
+### 💡 Propuestas de Rutas
+
+#### 🔐 Endpoints Protegidos (cualquier usuario logueado)
+
+| Método | Endpoint | Descripción |
+|--------|----------|-------------|
+| POST | `/api/routes/proposals` | Enviar propuesta de nueva ruta |
+| GET | `/api/routes/proposals/my` | Ver mis propuestas enviadas |
+
+#### 🛡️ Endpoints Solo Admin
+
+| Método | Endpoint | Descripción |
+|--------|----------|-------------|
+| GET | `/api/routes/proposals/pending` | Ver propuestas pendientes |
+| PUT | `/api/routes/proposals/{proposalId}/approve?notes=comentario` | Aprobar propuesta y crear ruta |
+| PUT | `/api/routes/proposals/{proposalId}/reject?notes=comentario` | Rechazar propuesta |
+
+### 🧭 Navegación
+
+| Método | Endpoint | Descripción | Auth |
+|--------|----------|-------------|------|
+| POST | `/api/navigation/start` | Registrar inicio de navegación | Sí |
+| POST | `/api/navigation/complete` | Registrar finalización de navegación | Sí |
+| GET | `/api/navigation/history` | Obtener historial de navegación del usuario | Sí |
+
+### 👥 Gestión de Usuarios
+
+| Método | Endpoint | Descripción | Auth |
+|--------|----------|-------------|------|
+| PUT | `/api/users/{userId}/promote` | Promover usuario a ADMIN | Admin |
+| GET | `/api/users/contributors` | Ver usuarios con más contribuciones | Admin |
+| GET | `/api/users/promotions/recent` | Ver promociones recientes | Admin |
+
 ### ⭐ Favoritos
 
 | Método | Endpoint | Descripción | Auth |
@@ -131,9 +191,11 @@ mvn spring-boot:run
 | GET | `/api/favorites/count` | Contar favoritos | Sí |
 | DELETE | `/api/favorites/clear` | Limpiar favoritos | Sí |
 
-## 📱 Ejemplos de Uso
+## 📱 Ejemplos de Uso Detallados
 
-### Registro de Usuario
+### 🔐 Autenticación
+
+#### Registro de Usuario
 ```bash
 curl -X POST http://localhost:8080/api/auth/register \
   -H "Content-Type: application/json" \
@@ -146,7 +208,7 @@ curl -X POST http://localhost:8080/api/auth/register \
   }'
 ```
 
-### Login
+#### Login
 ```bash
 curl -X POST http://localhost:8080/api/auth/login \
   -H "Content-Type: application/json" \
@@ -156,34 +218,249 @@ curl -X POST http://localhost:8080/api/auth/login \
   }'
 ```
 
-### Buscar Lugares
-```bash
-curl "http://localhost:8080/api/places/search?q=aula"
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Login exitoso",
+  "data": {
+    "token": "eyJhbGciOiJIUzUxMiJ9...",
+    "user": {
+      "id": "uuid-here",
+      "email": "estudiante@puce.edu.ec",
+      "fullName": "Juan Pérez",
+      "userType": "STUDENT",
+      "contributionScore": 0
+    }
+  }
+}
 ```
 
-### Agregar a Favoritos
+### 🗺️ Sistema de Rutas
+
+#### Obtener Destinos Disponibles
 ```bash
-curl -X POST http://localhost:8080/api/favorites/{place-id} \
-  -H "Authorization: Bearer {jwt-token}"
+curl http://localhost:8080/api/routes/destinations
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Destinos disponibles obtenidos exitosamente",
+  "count": 4,
+  "data": [
+    {
+      "id": "uuid-here",
+      "name": "Biblioteca Central",
+      "category": "Biblioteca",
+      "placeType": "LIBRARY",
+      "latitude": 19.3326,
+      "longitude": -99.1844,
+      "routeCount": 2,
+      "isRouteDestination": true
+    }
+  ]
+}
+```
+
+#### Obtener Ruta Más Cercana
+```bash
+curl "http://localhost:8080/api/routes/nearest?lat=19.3310&lng=-99.1830&destination=place-uuid"
+```
+
+#### Obtener Puntos de una Ruta
+```bash
+curl http://localhost:8080/api/routes/route-uuid/points
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Puntos de ruta obtenidos exitosamente",
+  "count": 5,
+  "data": [
+    {
+      "id": "point-uuid",
+      "latitude": 19.3310,
+      "longitude": -99.1830,
+      "orderIndex": 0,
+      "pointType": "START",
+      "instruction": "Punto de inicio en la entrada principal",
+      "distanceFromPrevious": 0
+    },
+    {
+      "id": "point-uuid-2",
+      "latitude": 19.3320,
+      "longitude": -99.1840,
+      "orderIndex": 1,
+      "pointType": "WAYPOINT",
+      "instruction": "Camina derecho por el sendero principal",
+      "distanceFromPrevious": 150
+    }
+  ]
+}
+```
+
+#### Calificar una Ruta
+```bash
+curl -X POST http://localhost:8080/api/routes/route-uuid/rating \
+  -H "Authorization: Bearer jwt-token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "rating": 4,
+    "comment": "Excelente ruta, muy clara y rápida"
+  }'
+```
+
+### 💡 Propuestas de Rutas
+
+#### Enviar Propuesta
+```bash
+curl -X POST http://localhost:8080/api/routes/proposals \
+  -H "Authorization: Bearer jwt-token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Ruta accesible a la Cafetería",
+    "description": "Propongo una ruta sin escalones para personas con movilidad reducida",
+    "fromLatitude": 19.3315,
+    "fromLongitude": -99.1835,
+    "fromDescription": "Estacionamiento Norte",
+    "toPlaceId": "place-uuid",
+    "proposedPoints": "{\"points\": [{\"lat\": 19.3315, \"lng\": -99.1835, \"description\": \"Inicio\"}]}"
+  }'
+```
+
+#### Admin: Aprobar Propuesta
+```bash
+curl -X PUT "http://localhost:8080/api/routes/proposals/proposal-uuid/approve?notes=Excelente propuesta" \
+  -H "Authorization: Bearer admin-jwt-token"
+```
+
+### 🧭 Navegación
+
+#### Iniciar Navegación
+```bash
+curl -X POST http://localhost:8080/api/navigation/start \
+  -H "Authorization: Bearer jwt-token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "fromLatitude": 19.3310,
+    "fromLongitude": -99.1830,
+    "toPlaceId": "place-uuid",
+    "routeId": "route-uuid"
+  }'
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Navegación iniciada exitosamente",
+  "data": {
+    "id": "navigation-uuid",
+    "fromLat": 19.3310,
+    "fromLng": -99.1830,
+    "toPlace": {...},
+    "routeUsed": {...},
+    "navigationStartedAt": "2024-01-15 10:30:00"
+  }
+}
+```
+
+#### Completar Navegación
+```bash
+curl -X POST http://localhost:8080/api/navigation/complete \
+  -H "Authorization: Bearer jwt-token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "navigationId": "navigation-uuid",
+    "routeCompleted": true
+  }'
+```
+
+### 🛡️ Administración
+
+#### Crear Ruta Oficial
+```bash
+curl -X POST http://localhost:8080/api/routes \
+  -H "Authorization: Bearer admin-jwt-token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Ruta Principal a Biblioteca",
+    "description": "Ruta oficial optimizada",
+    "fromLatitude": 19.3310,
+    "fromLongitude": -99.1830,
+    "fromDescription": "Entrada Principal",
+    "toPlaceId": "place-uuid",
+    "totalDistance": 350,
+    "estimatedTime": 5,
+    "difficulty": "EASY",
+    "isActive": true,
+    "routePoints": [
+      {
+        "latitude": 19.3310,
+        "longitude": -99.1830,
+        "orderIndex": 0,
+        "pointType": "START",
+        "instruction": "Inicio en entrada principal",
+        "distanceFromPrevious": 0
+      },
+      {
+        "latitude": 19.3326,
+        "longitude": -99.1844,
+        "orderIndex": 1,
+        "pointType": "END",
+        "instruction": "Has llegado a la biblioteca",
+        "distanceFromPrevious": 350
+      }
+    ]
+  }'
+```
+
+#### Ver Analytics de Rutas
+```bash
+curl http://localhost:8080/api/routes/analytics \
+  -H "Authorization: Bearer admin-jwt-token"
+```
+
+#### Promover Usuario a Admin
+```bash
+curl -X PUT http://localhost:8080/api/users/user-uuid/promote \
+  -H "Authorization: Bearer admin-jwt-token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "toUserType": "ADMIN",
+    "reason": "Usuario con excelentes contribuciones"
+  }'
 ```
 
 ## 🗄️ Base de Datos
 
 ### Tablas Principales
 
-- `users` - Usuarios del sistema
-- `places` - Lugares del campus
+#### Tablas Existentes
+- `users` - Usuarios del sistema (actualizada con contributionScore)
+- `places` - Lugares del campus (actualizada con campos de rutas)
 - `user_favorites` - Favoritos de usuarios
 - `place_reports` - Reportes de lugares
-- `navigation_history` - Historial de navegación
+- `navigation_history` - Historial de navegación (actualizada)
+
+#### Nuevas Tablas del Sistema de Rutas
+- `routes` - Rutas principales de navegación
+- `route_points` - Puntos detallados de cada ruta
+- `route_proposals` - Propuestas de rutas enviadas por usuarios
+- `route_ratings` - Calificaciones de rutas (1-5 estrellas)
+- `user_promotions` - Log de promociones de usuarios
 
 ### Tipos de Usuario
 
+- `VISITOR` - Visitante (nuevo tipo por defecto)
 - `STUDENT` - Estudiante
 - `TEACHER` - Docente
 - `ADMIN` - Administrador
 - `STAFF` - Personal administrativo
-- `VISITOR` - Visitante
 
 ### Tipos de Lugar
 
@@ -194,6 +471,97 @@ curl -X POST http://localhost:8080/api/favorites/{place-id} \
 - `OFFICE` - Oficina
 - `AUDITORIUM` - Auditorio
 - `SERVICE` - Servicio
+- `PARKING` - Estacionamiento (nuevo)
+- `RECREATION` - Recreación (nuevo)
+- `ENTRANCE` - Entrada (nuevo)
+
+### Tipos de Punto de Ruta
+
+- `START` - Punto de inicio
+- `WAYPOINT` - Punto intermedio
+- `TURN` - Punto de giro
+- `LANDMARK` - Punto de referencia
+- `END` - Punto final
+
+### Dificultad de Rutas
+
+- `EASY` - Fácil
+- `MEDIUM` - Medio
+- `HARD` - Difícil
+
+## 👥 Usuarios de Prueba
+
+El sistema carga automáticamente usuarios de prueba:
+
+| Email | Password | Tipo | Descripción |
+|-------|----------|------|-------------|
+| `admin@campus.edu` | `admin123` | ADMIN | Administrador principal |
+| `visitor@campus.edu` | `visitor123` | VISITOR | Visitante activo |
+| `student@campus.edu` | `student123` | STUDENT | Estudiante de prueba |
+
+## 🎯 Sistema de Contribuciones
+
+### Puntuación por Actividades
+
+- **Calificar ruta:** 5 puntos
+- **Propuesta enviada:** 10 puntos
+- **Propuesta aprobada:** 50 puntos
+- **Completar navegación:** 2 puntos
+
+### Promoción de Usuarios
+
+- Los usuarios con alto puntaje de contribución pueden ser promovidos a ADMIN
+- Solo administradores pueden promover usuarios
+- Se mantiene un log completo de todas las promociones
+
+## 🧪 Testing
+
+### Ejecutar Tests
+```bash
+mvn test
+```
+
+### Flujo de Testing Completo
+
+1. **Health checks:**
+```bash
+curl http://localhost:8080/api/routes/health
+curl http://localhost:8080/api/auth/health
+```
+
+2. **Login y obtener token:**
+```bash
+curl -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "visitor@campus.edu", "password": "visitor123"}'
+```
+
+3. **Explorar rutas:**
+```bash
+curl http://localhost:8080/api/routes/destinations
+curl http://localhost:8080/api/places
+```
+
+4. **Navegar y calificar:**
+```bash
+# Iniciar navegación
+curl -X POST http://localhost:8080/api/navigation/start \
+  -H "Authorization: Bearer token" \
+  -H "Content-Type: application/json" \
+  -d '{...}'
+
+# Completar navegación
+curl -X POST http://localhost:8080/api/navigation/complete \
+  -H "Authorization: Bearer token" \
+  -H "Content-Type: application/json" \
+  -d '{...}'
+
+# Calificar ruta
+curl -X POST http://localhost:8080/api/routes/route-id/rating \
+  -H "Authorization: Bearer token" \
+  -H "Content-Type: application/json" \
+  -d '{"rating": 5, "comment": "Excelente!"}'
+```
 
 ## 🔧 Administración
 
@@ -217,76 +585,31 @@ docker-compose logs -f lugares-comunes-api
 
 # Logs de MySQL
 docker-compose logs -f mysql-db
+
+# Logs específicos de rutas
+docker-compose logs -f lugares-comunes-api | grep -i route
 ```
 
-### Health Check
+### Monitoring y Métricas
 
-Verifica el estado de la aplicación:
+#### Endpoints de Health Check
+- `/api/auth/health` - Estado del sistema de autenticación
+- `/api/routes/health` - Estado del sistema de rutas
+- `/api/routes/proposals/health` - Estado de propuestas
+- `/api/navigation/health` - Estado de navegación
+- `/api/users/health` - Estado de gestión de usuarios
 
+#### Métricas Importantes
 ```bash
-curl http://localhost:8080/api/auth/health
-curl http://localhost:8080/api/places/health
+# Estadísticas de rutas (requiere token admin)
+curl http://localhost:8080/api/routes/analytics \
+  -H "Authorization: Bearer admin-token"
+
+# Top contributors
+curl http://localhost:8080/api/users/contributors \
+  -H "Authorization: Bearer admin-token"
 ```
-
-## 🚀 Despliegue en Azure
-
-### Preparación para Azure
-
-1. **Modifica docker-compose.yml para producción:**
-```yaml
-# Cambiar variables de entorno para producción
-environment:
-  DB_PASSWORD: ${AZURE_DB_PASSWORD}
-  JWT_SECRET: ${AZURE_JWT_SECRET}
-  ALLOWED_ORIGINS: "https://tu-dominio.com"
-```
-
-2. **Usa Azure Container Registry:**
-```bash
-# Tag y push de la imagen
-docker build -t tu-registry.azurecr.io/lugares-comunes:latest .
-docker push tu-registry.azurecr.io/lugares-comunes:latest
-```
-
-### Azure Container Instances
-
-```bash
-az container create \
-  --resource-group tu-resource-group \
-  --name lugares-comunes-api \
-  --image tu-registry.azurecr.io/lugares-comunes:latest \
-  --ports 8080 \
-  --environment-variables \
-    DB_HOST=tu-mysql-server.mysql.database.azure.com \
-    DB_USERNAME=tu-usuario \
-    DB_PASSWORD=tu-password
-```
-
-## 🧪 Testing
-
-### Ejecutar Tests
-```bash
-mvn test
-```
-
-### Test de Endpoints
-```bash
-# Health check
-curl http://localhost:8080/api/auth/health
-
-# Obtener lugares
-curl http://localhost:8080/api/places
-```
-
-## 📝 Notas Importantes
-
-1. **Seguridad:** Cambia las contraseñas y JWT secret en producción
-2. **CORS:** Configura orígenes específicos para producción
-3. **SSL:** Habilita HTTPS en producción
-4. **Backup:** Configura backups automáticos de MySQL
-5. **Monitoreo:** Implementa monitoreo con Azure Application Insights
-
-## 🐛 Troubleshooting
+## 🛠 Troubleshooting
 
 ### Problemas Comunes
 
@@ -311,18 +634,44 @@ environment:
   JAVA_OPTS: "-Xmx1g -Xms512m"
 ```
 
-## 🤝 Contribución
+4. **Error de JWT o filtros:**
+```bash
+# Verificar que JwtAuthenticationFilter tenga @Component
+# Verificar que las rutas públicas estén alineadas
+```
 
-1. Fork el proyecto
-2. Crea una rama para tu feature
-3. Commit tus cambios
-4. Push a la rama
-5. Abre un Pull Request
+5. **Error de validación de rutas:**
+```bash
+# Verificar coordenadas GPS válidas
+# Verificar que los puntos tengan orden secuencial
+# Verificar que tenga punto START y END
+```
 
-## 📄 Licencia
+## 🔍 API Documentation
 
-Este proyecto está licenciado bajo [MIT License](LICENSE).
+### Códigos de Estado HTTP
 
----
+- **200 OK** - Operación exitosa
+- **201 Created** - Recurso creado exitosamente
+- **400 Bad Request** - Error en los datos enviados
+- **401 Unauthorized** - Token JWT inválido o faltante
+- **403 Forbidden** - Sin permisos para la operación
+- **404 Not Found** - Recurso no encontrado
+- **500 Internal Server Error** - Error interno del servidor
 
-**Desarrollado para PUCE - Lugares Comunes 🎓📍**
+### Formato de Respuestas
+
+Todas las respuestas siguen este formato estándar:
+
+```json
+{
+  "success": true/false,
+  "message": "Descripción del resultado",
+  "data": {...}, // Solo en respuestas exitosas
+  "count": 5, // Solo en listas
+  "timestamp": 1642678800000, // Solo en errores
+  "errorCode": "ERROR_CODE" // Solo en errores
+}
+```
+
+*Sistema de Navegación con Rutas GPS - Version 2.0*

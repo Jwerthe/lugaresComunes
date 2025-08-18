@@ -34,13 +34,13 @@ public class Place {
     @Column(name = "what3words")
     private String what3words;
     
-    @Column(nullable = false, precision = 10, scale = 8)
+    @Column(nullable = false)
     @NotNull(message = "Latitud es obligatoria")
     @DecimalMin(value = "-90.0", message = "Latitud debe ser mayor a -90")
     @DecimalMax(value = "90.0", message = "Latitud debe ser menor a 90")
     private BigDecimal latitude;
     
-    @Column(nullable = false, precision = 11, scale = 8)
+    @Column(nullable = false)
     @NotNull(message = "Longitud es obligatoria")
     @DecimalMin(value = "-180.0", message = "Longitud debe ser mayor a -180")
     @DecimalMax(value = "180.0", message = "Longitud debe ser menor a 180")
@@ -81,6 +81,13 @@ public class Place {
     @Column(name = "accessibility_feature")
     private Set<String> accessibilityFeatures = new HashSet<>();
     
+    // 🆕 NUEVOS CAMPOS PARA SISTEMA DE RUTAS
+    @Column(name = "is_route_destination")
+    private Boolean isRouteDestination = true; // Si puede ser destino de rutas
+    
+    @Column(name = "route_count", nullable = false)
+    private Integer routeCount = 0; // Cantidad de rutas que llegan aquí
+    
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -89,7 +96,7 @@ public class Place {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
     
-    // Relaciones
+    // Relaciones existentes
     @OneToMany(mappedBy = "place", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private Set<UserFavorite> favoriteByUsers = new HashSet<>();
     
@@ -98,6 +105,13 @@ public class Place {
     
     @OneToMany(mappedBy = "toPlace", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private Set<NavigationHistory> navigationHistory = new HashSet<>();
+    
+    // 🆕 NUEVAS RELACIONES
+    @OneToMany(mappedBy = "toPlace", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private Set<Route> routesToThisPlace = new HashSet<>();
+    
+    @OneToMany(mappedBy = "toPlace", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private Set<RouteProposal> proposalsToThisPlace = new HashSet<>();
     
     // Constructors
     public Place() {}
@@ -110,7 +124,46 @@ public class Place {
         this.longitude = longitude;
     }
     
-    // Getters and Setters
+    // 🆕 NUEVOS MÉTODOS PARA RUTAS
+    public void incrementRouteCount() {
+        if (this.routeCount == null) this.routeCount = 0;
+        this.routeCount = this.routeCount + 1;
+    }
+    
+    public void decrementRouteCount() {
+        this.routeCount = Math.max(0, this.routeCount - 1);
+    }
+    
+    public boolean hasActiveRoutes() {
+        return routesToThisPlace.stream().anyMatch(Route::getIsActive);
+    }
+    
+    public List<Route> getActiveRoutes() {
+        return routesToThisPlace.stream()
+                .filter(Route::getIsActive)
+                .sorted((r1, r2) -> r2.getAverageRating().compareTo(r1.getAverageRating()))
+                .toList();
+    }
+    
+    public int getPendingProposalsCount() {
+        return (int) proposalsToThisPlace.stream()
+                .filter(RouteProposal::isPending)
+                .count();
+    }
+    
+    public boolean isPopularDestination() {
+        return routeCount >= 3; // Considerado popular si tiene 3+ rutas
+    }
+    
+    public void enableAsRouteDestination() {
+        this.isRouteDestination = true;
+    }
+    
+    public void disableAsRouteDestination() {
+        this.isRouteDestination = false;
+    }
+    
+    // Getters and Setters (todos los existentes + nuevos campos)
     public UUID getId() {
         return id;
     }
@@ -247,6 +300,23 @@ public class Place {
         this.accessibilityFeatures = accessibilityFeatures;
     }
     
+    // 🆕 GETTERS/SETTERS PARA NUEVOS CAMPOS
+    public Boolean getIsRouteDestination() {
+        return isRouteDestination;
+    }
+    
+    public void setIsRouteDestination(Boolean isRouteDestination) {
+        this.isRouteDestination = isRouteDestination;
+    }
+    
+    public Integer getRouteCount() {
+        return routeCount;
+    }
+    
+    public void setRouteCount(Integer routeCount) {
+        this.routeCount = routeCount;
+    }
+    
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
@@ -255,6 +325,7 @@ public class Place {
         return updatedAt;
     }
     
+    // Getters/Setters para relaciones existentes
     public Set<UserFavorite> getFavoriteByUsers() {
         return favoriteByUsers;
     }
@@ -277,6 +348,23 @@ public class Place {
     
     public void setNavigationHistory(Set<NavigationHistory> navigationHistory) {
         this.navigationHistory = navigationHistory;
+    }
+    
+    // 🆕 GETTERS/SETTERS PARA NUEVAS RELACIONES
+    public Set<Route> getRoutesToThisPlace() {
+        return routesToThisPlace;
+    }
+    
+    public void setRoutesToThisPlace(Set<Route> routesToThisPlace) {
+        this.routesToThisPlace = routesToThisPlace;
+    }
+    
+    public Set<RouteProposal> getProposalsToThisPlace() {
+        return proposalsToThisPlace;
+    }
+    
+    public void setProposalsToThisPlace(Set<RouteProposal> proposalsToThisPlace) {
+        this.proposalsToThisPlace = proposalsToThisPlace;
     }
     
     @Override

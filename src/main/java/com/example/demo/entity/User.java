@@ -37,10 +37,14 @@ public class User implements UserDetails {
     
     @Enumerated(EnumType.STRING)
     @Column(name = "user_type")
-    private UserType userType = UserType.STUDENT;
+    private UserType userType = UserType.VISITOR; // 🔄 Cambiado de STUDENT a VISITOR
     
     @Column(name = "is_active")
     private Boolean isActive = true;
+    
+    // 🆕 NUEVO CAMPO: Puntuación de contribuciones
+    @Column(name = "contribution_score")
+    private Integer contributionScore = 0;
     
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -50,7 +54,7 @@ public class User implements UserDetails {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
     
-    // Relaciones
+    // Relaciones existentes
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private Set<UserFavorite> favorites = new HashSet<>();
     
@@ -59,6 +63,22 @@ public class User implements UserDetails {
     
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private Set<NavigationHistory> navigationHistory = new HashSet<>();
+    
+    // 🆕 NUEVAS RELACIONES
+    @OneToMany(mappedBy = "createdBy", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private Set<Route> createdRoutes = new HashSet<>();
+    
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private Set<RouteRating> routeRatings = new HashSet<>();
+    
+    @OneToMany(mappedBy = "proposedBy", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private Set<RouteProposal> routeProposals = new HashSet<>();
+    
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private Set<UserPromotion> promotions = new HashSet<>();
+    
+    @OneToMany(mappedBy = "promotedBy", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private Set<UserPromotion> promotionsGiven = new HashSet<>();
     
     // Constructors
     public User() {}
@@ -69,7 +89,52 @@ public class User implements UserDetails {
         this.fullName = fullName;
     }
     
-    // UserDetails implementation
+    // 🆕 NUEVOS MÉTODOS DE CONTRIBUCIÓN
+    public void addContributionPoints(int points) {
+        this.contributionScore += points;
+    }
+    
+    public void removeContributionPoints(int points) {
+        this.contributionScore = Math.max(0, this.contributionScore - points);
+    }
+    
+    public boolean isEligibleForPromotion() {
+        // Lógica para determinar si es elegible para promoción
+        return contributionScore >= 100 && userType == UserType.VISITOR;
+    }
+    
+    public int getApprovedProposalsCount() {
+        return (int) routeProposals.stream()
+                .filter(RouteProposal::isApproved)
+                .count();
+    }
+    
+    public int getActiveRoutesCount() {
+        return (int) createdRoutes.stream()
+                .filter(Route::getIsActive)
+                .count();
+    }
+    
+    public double getAverageRatingGiven() {
+        return routeRatings.stream()
+                .mapToInt(RouteRating::getRating)
+                .average()
+                .orElse(0.0);
+    }
+    
+    public boolean hasRouteRating(Route route) {
+        return routeRatings.stream()
+                .anyMatch(rating -> rating.getRoute().equals(route));
+    }
+    
+    public RouteRating getRouteRating(Route route) {
+        return routeRatings.stream()
+                .filter(rating -> rating.getRoute().equals(route))
+                .findFirst()
+                .orElse(null);
+    }
+    
+    // UserDetails implementation (sin cambios)
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return Collections.singletonList(
@@ -102,7 +167,7 @@ public class User implements UserDetails {
         return isActive;
     }
     
-    // Getters and Setters
+    // Getters and Setters (incluyendo los nuevos campos)
     public UUID getId() {
         return id;
     }
@@ -160,6 +225,15 @@ public class User implements UserDetails {
         this.isActive = isActive;
     }
     
+    // 🆕 GETTER/SETTER PARA CONTRIBUTION SCORE
+    public Integer getContributionScore() {
+        return contributionScore;
+    }
+    
+    public void setContributionScore(Integer contributionScore) {
+        this.contributionScore = contributionScore;
+    }
+    
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
@@ -168,6 +242,7 @@ public class User implements UserDetails {
         return updatedAt;
     }
     
+    // Getters and Setters para relaciones existentes
     public Set<UserFavorite> getFavorites() {
         return favorites;
     }
@@ -190,6 +265,47 @@ public class User implements UserDetails {
     
     public void setNavigationHistory(Set<NavigationHistory> navigationHistory) {
         this.navigationHistory = navigationHistory;
+    }
+    
+    // 🆕 GETTERS/SETTERS PARA NUEVAS RELACIONES
+    public Set<Route> getCreatedRoutes() {
+        return createdRoutes;
+    }
+    
+    public void setCreatedRoutes(Set<Route> createdRoutes) {
+        this.createdRoutes = createdRoutes;
+    }
+    
+    public Set<RouteRating> getRouteRatings() {
+        return routeRatings;
+    }
+    
+    public void setRouteRatings(Set<RouteRating> routeRatings) {
+        this.routeRatings = routeRatings;
+    }
+    
+    public Set<RouteProposal> getRouteProposals() {
+        return routeProposals;
+    }
+    
+    public void setRouteProposals(Set<RouteProposal> routeProposals) {
+        this.routeProposals = routeProposals;
+    }
+    
+    public Set<UserPromotion> getPromotions() {
+        return promotions;
+    }
+    
+    public void setPromotions(Set<UserPromotion> promotions) {
+        this.promotions = promotions;
+    }
+    
+    public Set<UserPromotion> getPromotionsGiven() {
+        return promotionsGiven;
+    }
+    
+    public void setPromotionsGiven(Set<UserPromotion> promotionsGiven) {
+        this.promotionsGiven = promotionsGiven;
     }
     
     @Override
