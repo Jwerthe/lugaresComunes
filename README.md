@@ -674,4 +674,4 @@ Todas las respuestas siguen este formato estándar:
 }
 ```
 
-*Sistema de Navegación con Rutas GPS - Version 2.0*
+*Sistema de Navegación con Rutas GPS*
