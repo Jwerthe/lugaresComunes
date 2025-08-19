@@ -17,6 +17,7 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Set;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -32,7 +33,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     // 🔓 Rutas públicas EXACTAS (SIN el prefijo de contexto /api)
-    private static final List<String> PUBLIC_PATHS = List.of(
+    private static final Set<String> PUBLIC_EXACT_PATHS = Set.of(
         // Auth públicos
         "/auth/login",
         "/auth/register",
@@ -63,52 +64,68 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         "/health"
     );
 
+    // 🔓 Patrones de rutas públicas específicas
+    private static final List<String> PUBLIC_PATH_PATTERNS = List.of(
+        // Rutas de lugares específicos (GET) - formato UUID
+        "^/places/[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$",
+        
+        // Rutas públicas específicas de routes
+        "^/routes/to/[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$",
+        "^/routes/[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}/points$",
+        "^/routes/[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}/details$"
+    );
+
+    // 🔐 Patrones de rutas EXPLÍCITAMENTE PROTEGIDAS (requieren JWT)
+    private static final List<String> PROTECTED_PATH_PATTERNS = List.of(
+        // Rutas que requieren autenticación
+        "^/routes/[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}/rating$",
+        "^/routes/[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}/my-rating$"
+    );
+
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
         // Permitir preflight CORS
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
-            logger.debug("⭐ Skipping JWT filter for CORS preflight OPTIONS");
+            logger.debug("⏭️ Skipping JWT filter for CORS preflight OPTIONS");
             return true;
         }
 
-        // 🔧 FIX: Obtener la ruta correctamente
+        // Obtener la ruta correctamente
         String path = request.getRequestURI();
         String contextPath = request.getContextPath();
         
-        // Remover context path si existe
+        // Remover context path si existe (normalmente /api)
         if (StringUtils.hasText(contextPath) && path.startsWith(contextPath)) {
             path = path.substring(contextPath.length());
         }
         
         final String normalizedPath = path;
         
-        // 🔧 FIX CRÍTICO: Verificación de rutas públicas más precisa
-        boolean isPublic = false;
-        
-        // 1. Verificar rutas públicas exactas
-        if (PUBLIC_PATHS.contains(normalizedPath)) {
-            isPublic = true;
-        }
-        // 2. Verificar patrones específicos PÚBLICOS
-        else if (
-            // Rutas de lugares específicos (GET)
-            normalizedPath.matches("/places/[a-fA-F0-9-]+") ||
-            
-            // Rutas específicas de routes que SÍ son públicas
-            normalizedPath.matches("/routes/to/[a-fA-F0-9-]+") ||
-            normalizedPath.matches("/routes/[a-fA-F0-9-]+/points") ||
-            normalizedPath.matches("/routes/[a-fA-F0-9-]+/details")
-        ) {
-            isPublic = true;
-        }
-
-        if (isPublic) {
-            logger.debug("⭐ Skipping JWT filter for public path: {}", normalizedPath);
-        } else {
-            logger.debug("🔐 JWT required for protected path: {}", normalizedPath);
+        // PRIMERO: Verificar si es una ruta EXPLÍCITAMENTE PROTEGIDA
+        for (String pattern : PROTECTED_PATH_PATTERNS) {
+            if (normalizedPath.matches(pattern)) {
+                logger.debug("🔐 JWT required for protected path: {}", normalizedPath);
+                return false; // NO saltar el filtro - requiere JWT
+            }
         }
         
-        return isPublic;
+        // SEGUNDO: Verificar rutas públicas exactas
+        if (PUBLIC_EXACT_PATHS.contains(normalizedPath)) {
+            logger.debug("⏭️ Skipping JWT filter for public path: {}", normalizedPath);
+            return true; // Saltar el filtro - es pública
+        }
+        
+        // TERCERO: Verificar patrones de rutas públicas
+        for (String pattern : PUBLIC_PATH_PATTERNS) {
+            if (normalizedPath.matches(pattern)) {
+                logger.debug("⏭️ Skipping JWT filter for public path: {}", normalizedPath);
+                return true; // Saltar el filtro - es pública
+            }
+        }
+        
+        // Por defecto, todas las demás rutas requieren autenticación
+        logger.debug("🔐 JWT required for protected path: {}", normalizedPath);
+        return false; // NO saltar el filtro - requiere JWT
     }
 
     @Override
