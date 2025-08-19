@@ -44,6 +44,7 @@ public class UserPromotion {
     @Column(name = "contribution_score_at_promotion")
     private Integer contributionScoreAtPromotion;
     
+    // 🔧 FIX: Asegurar que promotedAt se establezca correctamente
     @CreationTimestamp
     @Column(name = "promoted_at", nullable = false, updatable = false)
     private LocalDateTime promotedAt;
@@ -58,17 +59,23 @@ public class UserPromotion {
         this.toUserType = toUserType;
         this.promotedBy = promotedBy;
         this.reason = reason;
-        this.contributionScoreAtPromotion = user.getContributionScore();
+        
+        // 🔧 FIX: Manejar contributionScore null de forma segura
+        Integer userScore = user.getContributionScore();
+        this.contributionScoreAtPromotion = userScore != null ? userScore : 0;
+        
+        // 🔧 FIX: Establecer promotedAt manualmente si @CreationTimestamp falla
+        if (this.promotedAt == null) {
+            this.promotedAt = LocalDateTime.now();
+        }
     }
     
-    // Helper methods
+    // Helper methods con null-safety
     public boolean isUpgrade() {
-        // Consideramos que ADMIN es el nivel más alto
         return toUserType == UserType.ADMIN && fromUserType != UserType.ADMIN;
     }
     
     public boolean isDowngrade() {
-        // Consideramos que VISITOR es el nivel más bajo
         return toUserType == UserType.VISITOR && fromUserType != UserType.VISITOR;
     }
     
@@ -86,10 +93,14 @@ public class UserPromotion {
     }
     
     public String getFormattedDate() {
-        return promotedAt.toLocalDate().toString();
+        return promotedAt != null ? promotedAt.toLocalDate().toString() : "Fecha no disponible";
     }
     
-    public long getDaysAgo() {
+    // 🔧 FIX: Null-safe getDaysAgo
+    public Long getDaysAgo() {
+        if (promotedAt == null) {
+            return null;
+        }
         return java.time.temporal.ChronoUnit.DAYS.between(
             promotedAt.toLocalDate(), 
             LocalDateTime.now().toLocalDate()
@@ -155,6 +166,11 @@ public class UserPromotion {
     
     public LocalDateTime getPromotedAt() {
         return promotedAt;
+    }
+    
+    // 🔧 FIX: Agregar setter para promotedAt por si es necesario
+    public void setPromotedAt(LocalDateTime promotedAt) {
+        this.promotedAt = promotedAt;
     }
     
     @Override

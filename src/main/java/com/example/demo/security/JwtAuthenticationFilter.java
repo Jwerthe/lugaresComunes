@@ -31,16 +31,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         this.userDetailsService = userDetailsService;
     }
 
-    // 🔓 Rutas públicas (SIN el prefijo de contexto /api)
+    // 🔓 Rutas públicas EXACTAS (SIN el prefijo de contexto /api)
     private static final List<String> PUBLIC_PATHS = List.of(
-        // Auth
+        // Auth públicos
         "/auth/login",
         "/auth/register",
         "/auth/health",
         "/auth/validate-email",
         "/auth/validate-student-id",
 
-        // Places
+        // Places - todas las lecturas son públicas
         "/places",
         "/places/search",
         "/places/nearby",
@@ -49,13 +49,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         "/places/building",
         "/places/what3words",
 
-        // Routes
+        // Routes - SOLO estas rutas específicas son públicas
         "/routes/destinations",
-        "/routes/to",              // p.ej. /routes/to/{dest}
         "/routes/nearest",
         "/routes/health",
         "/routes/proposals/health",
-        "/routes/",                // para cubrir /routes/*/points y /routes/*/details
 
         // Navigation & Users health
         "/navigation/health",
@@ -69,26 +67,47 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
         // Permitir preflight CORS
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
-            logger.debug("⏭️ Skipping JWT filter for CORS preflight OPTIONS");
+            logger.debug("⭐ Skipping JWT filter for CORS preflight OPTIONS");
             return true;
         }
 
-        // Quitar context path (p.ej. /api) antes de comparar
-        String path = request.getRequestURI();      // e.g. /api/auth/health
-        String ctx  = request.getContextPath();     // e.g. /api
-        if (StringUtils.hasText(ctx) && path.startsWith(ctx)) {
-            path = path.substring(ctx.length());    // e.g. /auth/health
+        // 🔧 FIX: Obtener la ruta correctamente
+        String path = request.getRequestURI();
+        String contextPath = request.getContextPath();
+        
+        // Remover context path si existe
+        if (StringUtils.hasText(contextPath) && path.startsWith(contextPath)) {
+            path = path.substring(contextPath.length());
         }
-
-        final String normalized = path;
-
-        boolean isPublic = PUBLIC_PATHS.stream().anyMatch(publicPath ->
-            normalized.equals(publicPath) || normalized.startsWith(publicPath)
-        );
+        
+        final String normalizedPath = path;
+        
+        // 🔧 FIX CRÍTICO: Verificación de rutas públicas más precisa
+        boolean isPublic = false;
+        
+        // 1. Verificar rutas públicas exactas
+        if (PUBLIC_PATHS.contains(normalizedPath)) {
+            isPublic = true;
+        }
+        // 2. Verificar patrones específicos PÚBLICOS
+        else if (
+            // Rutas de lugares específicos (GET)
+            normalizedPath.matches("/places/[a-fA-F0-9-]+") ||
+            
+            // Rutas específicas de routes que SÍ son públicas
+            normalizedPath.matches("/routes/to/[a-fA-F0-9-]+") ||
+            normalizedPath.matches("/routes/[a-fA-F0-9-]+/points") ||
+            normalizedPath.matches("/routes/[a-fA-F0-9-]+/details")
+        ) {
+            isPublic = true;
+        }
 
         if (isPublic) {
-            logger.debug("⏭️ Skipping JWT filter for public path: {}", normalized);
+            logger.debug("⭐ Skipping JWT filter for public path: {}", normalizedPath);
+        } else {
+            logger.debug("🔐 JWT required for protected path: {}", normalizedPath);
         }
+        
         return isPublic;
     }
 
@@ -99,7 +118,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
 
-        logger.debug("🔐 Processing JWT for path: {}", request.getRequestURI());
+        logger.debug("🔍 Processing JWT for path: {}", request.getRequestURI());
 
         try {
             // Si ya hay autenticación establecida, continúa
@@ -122,11 +141,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                     logger.debug("✅ User authenticated: {}", username);
                 } else {
-                    logger.debug("❌ No valid JWT token found");
+                    logger.debug("❌ No valid JWT token found for protected path: {}", request.getRequestURI());
                 }
+            } else {
+                logger.debug("🔄 Authentication already exists in context");
             }
         } catch (Exception e) {
             logger.error("Cannot set user authentication: {}", e.getMessage());
+            SecurityContextHolder.clearContext();
         }
 
         filterChain.doFilter(request, response);
@@ -135,8 +157,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private String parseJwt(HttpServletRequest request) {
         String headerAuth = request.getHeader("Authorization");
         if (StringUtils.hasText(headerAuth) && headerAuth.startsWith("Bearer ")) {
-            return headerAuth.substring(7);
+            String token = headerAuth.substring(7);
+            logger.debug("🔑 JWT token found in request");
+            return token;
         }
+        logger.debug("❌ No JWT token in Authorization header");
         return null;
     }
 }

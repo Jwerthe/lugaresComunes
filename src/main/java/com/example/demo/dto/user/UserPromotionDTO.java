@@ -1,4 +1,4 @@
-// UserPromotionDTO.java
+// UserPromotionDTO.java - CORREGIDO
 package com.example.demo.dto.user;
 
 import com.example.demo.entity.UserPromotion;
@@ -50,7 +50,11 @@ public class UserPromotionDTO {
         return toUserType == UserType.ADMIN && fromUserType != UserType.ADMIN;
     }
     
-    public long getDaysAgo() {
+    // 🔧 FIX CRÍTICO: Manejar promotedAt null
+    public Long getDaysAgo() {
+        if (promotedAt == null) {
+            return null; // O retorna 0L si prefieres
+        }
         return java.time.temporal.ChronoUnit.DAYS.between(
             promotedAt.toLocalDate(), 
             LocalDateTime.now().toLocalDate()

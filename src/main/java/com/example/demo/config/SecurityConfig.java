@@ -26,7 +26,6 @@ import java.util.Arrays;
 @EnableMethodSecurity(prePostEnabled = true)
 public class SecurityConfig {
 
-    // AGREGAR después de la declaración de clase:
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
@@ -67,13 +66,13 @@ public class SecurityConfig {
             .exceptionHandling(ex -> ex.authenticationEntryPoint(jwtAuthenticationEntryPoint))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(authz -> authz
-                // 🌐 ENDPOINTS PÚBLICOS DE AUTENTICACIÓN (sin JWT)
+                // 🌍 ENDPOINTS PÚBLICOS DE AUTENTICACIÓN (sin JWT)
                 .requestMatchers("/auth/**").permitAll()
                 
-                // 🌐 ENDPOINTS PÚBLICOS DE LUGARES (sin JWT)
+                // 🌍 ENDPOINTS PÚBLICOS DE LUGARES (sin JWT)
                 .requestMatchers(HttpMethod.GET, "/places/**").permitAll()
                 
-                // 🌐 NUEVOS ENDPOINTS PÚBLICOS DE RUTAS (sin JWT)
+                // 🌍 ENDPOINTS PÚBLICOS DE RUTAS (sin JWT) - MÁS ESPECÍFICOS
                 .requestMatchers(HttpMethod.GET, "/routes/destinations").permitAll()
                 .requestMatchers(HttpMethod.GET, "/routes/to/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/routes/*/points").permitAll()
@@ -83,6 +82,13 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/routes/proposals/health").permitAll()
                 .requestMatchers(HttpMethod.GET, "/navigation/health").permitAll()
                 .requestMatchers(HttpMethod.GET, "/users/health").permitAll()
+                .requestMatchers(HttpMethod.GET, "/health").permitAll()
+                
+                // 🔐 ENDPOINTS PROTEGIDOS DE AUTENTICACIÓN (requieren JWT)
+                .requestMatchers("/auth/me").authenticated()
+                
+                // 🔐 ENDPOINTS PROTEGIDOS DE FAVORITOS (requieren JWT)
+                .requestMatchers("/favorites/**").authenticated()
                 
                 // 🔐 ENDPOINTS PROTEGIDOS DE RUTAS (requieren JWT - cualquier usuario)
                 .requestMatchers(HttpMethod.POST, "/routes/*/rating").authenticated()
@@ -96,10 +102,6 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/navigation/start").authenticated()
                 .requestMatchers(HttpMethod.POST, "/navigation/complete").authenticated()
                 .requestMatchers(HttpMethod.GET, "/navigation/history").authenticated()
-                
-                // 🔐 ENDPOINTS PROTEGIDOS EXISTENTES (requieren JWT)
-                .requestMatchers("/auth/me").authenticated()
-                .requestMatchers("/favorites/**").authenticated()
                 
                 // 🛡️ ENDPOINTS SOLO ADMIN - RUTAS
                 .requestMatchers(HttpMethod.POST, "/routes").hasRole("ADMIN")
@@ -117,7 +119,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/users/contributors").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/users/promotions/recent").hasRole("ADMIN")
                 
-                // 🛡️ ENDPOINTS SOLO ADMIN EXISTENTES
+                // 🛡️ ENDPOINTS SOLO ADMIN EXISTENTES - LUGARES
                 .requestMatchers(HttpMethod.POST, "/places").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/places/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/places/**").hasRole("ADMIN")

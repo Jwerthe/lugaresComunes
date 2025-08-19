@@ -1,4 +1,4 @@
-// UserPromotionService.java
+// UserPromotionService.java - CORREGIDO
 package com.example.demo.service;
 
 import com.example.demo.dto.user.*;
@@ -73,11 +73,21 @@ public class UserPromotionService {
     public List<UserDTO> getTopContributors() {
         logger.info("🏆 Obteniendo usuarios con más contribuciones");
         
+        // 🔧 FIX: Manejar contributionScore null
         List<User> topUsers = userRepository.findAll().stream()
-                .filter(user -> user.getContributionScore() > 0)
-                .sorted((u1, u2) -> u2.getContributionScore().compareTo(u1.getContributionScore()))
+                .filter(user -> {
+                    Integer score = user.getContributionScore();
+                    return score != null && score > 0;
+                })
+                .sorted((u1, u2) -> {
+                    Integer score1 = u1.getContributionScore() != null ? u1.getContributionScore() : 0;
+                    Integer score2 = u2.getContributionScore() != null ? u2.getContributionScore() : 0;
+                    return score2.compareTo(score1);
+                })
                 .limit(10)
                 .collect(Collectors.toList());
+        
+        logger.info("📊 Encontrados {} usuarios con contribuciones", topUsers.size());
         
         return topUsers.stream()
                 .map(UserDTO::fromEntity)
